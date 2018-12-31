@@ -2,10 +2,10 @@ use std::path::{Path, PathBuf};
 
 pub struct Config {
     root_dir_name: String,
-    block_size: u32,
+    block_size: u16,
 }
 
-const DEFAULT_BLOCK_SIZE: u32 = 1024 * 8;
+pub const DEFAULT_BLOCK_SIZE: u16 = 1024 * 8;
 
 impl Config {
     pub fn new(root_dir_name: String) -> Config {
