@@ -1,0 +1,6 @@
+[package]
+name = "minidb"
+version = "0.1.0"
+authors = ["yui-knk <spiketeika@gmail.com>"]
+
+[dependencies]
