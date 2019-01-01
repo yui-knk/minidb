@@ -192,7 +192,7 @@ impl Page {
     }
 
     // index is 0-origin.
-    fn get_entry(&self, index: u16) -> Result<Vec<u8>, String> {
+    pub fn get_entry(&self, index: u16) -> Result<Vec<u8>, String> {
         if index > self.entry_count() {
             return Err(format!("Index over entry_count. index: {}, entry_count: {}", index, self.entry_count()));
         }
@@ -267,7 +267,6 @@ mod tests {
 
         assert_eq!(page.is_empty(), true);
     }
-
 
     #[test]
     fn test_add_entry() {
