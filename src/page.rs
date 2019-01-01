@@ -36,6 +36,11 @@ pub struct ItemIdData {
     data: u32
 }
 
+const MEM_SIZE_OF_U8: usize = mem::size_of::<u8>();
+const MEM_SIZE_OF_U8_AS_U16: u16 = mem::size_of::<u8>() as u16;
+
+const ITEM_ID_DATA_BYTE_SIZE: usize = mem::size_of::<ItemIdData>();
+
 // see: PageHeaderData
 pub struct Header {
     // offset to start of free space
@@ -49,6 +54,14 @@ const HEADER_BYTE_SIZE: usize = mem::size_of::<Header>();
 impl ItemIdData {
     pub fn new(data: u32) -> ItemIdData {
         ItemIdData { data: data }
+    }
+
+    pub fn new_with_lps(off: u16, flags: u8, len: u16) -> ItemIdData {
+        let mut item = ItemIdData::new(0);
+        item.set_lp_off(off);
+        item.set_lp_flags(flags);
+        item.set_lp_len(len);
+        item
     }
 
     pub fn lp_off(&self) -> u16 {
@@ -125,8 +138,78 @@ impl Page {
         }
     }
 
+    pub fn mut_header(&mut self) -> &mut Header {
+        unsafe {
+            if self.header.is_null() {
+                panic!("header should not be null pointer.");
+            }
+
+            &mut *self.header
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.header().pd_lower as usize <= HEADER_BYTE_SIZE
+    }
+
+    pub fn add_entry(&mut self, entry: &Vec<u8>) -> Result<(), String> {
+        let len = (entry.len() * MEM_SIZE_OF_U8) as u16;
+
+        if self.has_space(len) {
+            self.mut_header().pd_upper -= len;
+            let item = ItemIdData::new_with_lps(self.header().pd_upper, 0, len);
+
+            unsafe {
+                let item_p: *mut ItemIdData = self.header.add(self.header().pd_lower as usize) as *mut ItemIdData;
+                *item_p = item;
+
+                for i in 0..len {
+                    let off = self.mut_header().pd_upper;
+                    let p: *mut u8 = self.header.add((off + MEM_SIZE_OF_U8_AS_U16 * i) as usize) as *mut u8;
+                    *p = entry[i as usize];
+                }
+            }
+
+            self.mut_header().pd_lower += ITEM_ID_DATA_BYTE_SIZE as u16;
+            Ok(())
+        } else {
+            Err(format!("Does not have enough space for {}", len))
+        }
+    }
+
+    fn has_space(&self, len: u16) -> bool {
+        self.header().pd_lower <= (self.header().pd_upper - len)
+    }
+
+    fn entry_count(&self) -> u16 {
+        (((self.header().pd_lower as usize) - HEADER_BYTE_SIZE) / ITEM_ID_DATA_BYTE_SIZE) as u16
+    }
+
+    fn get_item(&self, index: u16) -> &ItemIdData {
+        unsafe {
+            &*(self.header.add(HEADER_BYTE_SIZE + ITEM_ID_DATA_BYTE_SIZE * (index as usize)) as *const ItemIdData)
+        }
+    }
+
+    // index is 0-origin.
+    fn get_entry(&self, index: u16) -> Result<Vec<u8>, String> {
+        if index > self.entry_count() {
+            return Err(format!("Index over entry_count. index: {}, entry_count: {}", index, self.entry_count()));
+        }
+
+        unsafe {
+            let item_p: *const ItemIdData = self.get_item(index);
+            let off = (*item_p).lp_off();
+            let len = (*item_p).lp_len();
+            let mut v = Vec::with_capacity(len as usize);
+
+            for i in 0..len {
+                let p: *const u8 = self.header.add((off + MEM_SIZE_OF_U8_AS_U16 * i) as usize) as *const u8;
+                v.push(*p);
+            }
+
+            Ok(v)
+        }
     }
 }
 
@@ -175,6 +258,7 @@ mod tests {
         // Check pd_lower by is_empty method.
         assert_eq!(page.is_empty(), true);
         assert_eq!(page.header().pd_upper, DEFAULT_BLOCK_SIZE);
+        assert_eq!(page.entry_count(), 0);
     }
 
     #[test]
@@ -183,5 +267,30 @@ mod tests {
 
         assert_eq!(page.is_empty(), true);
     }
-}
 
+
+    #[test]
+    fn test_add_entry() {
+        let mut page = Page::new(DEFAULT_BLOCK_SIZE);
+        let entry1: Vec<u8> = vec![1, 2, 3];
+        let entry2: Vec<u8> = vec![3, 2, 1, 0];
+        let entry_size1 = (mem::size_of::<u8>() * 3) as u16;
+        let entry_size2 = (mem::size_of::<u8>() * 4) as u16;
+
+        page.add_entry(&entry1).unwrap();
+        assert_eq!(page.header().pd_lower, (HEADER_BYTE_SIZE + ITEM_ID_DATA_BYTE_SIZE) as u16);
+        assert_eq!(page.header().pd_upper, DEFAULT_BLOCK_SIZE - entry_size1);
+        assert_eq!(page.is_empty(), false);
+        assert_eq!(page.entry_count(), 1);
+        assert_eq!(page.get_item(0).lp_len(), 3);
+        assert_eq!(page.get_entry(0).unwrap(), entry1);
+
+        page.add_entry(&entry2).unwrap();
+        assert_eq!(page.header().pd_lower, (HEADER_BYTE_SIZE + ITEM_ID_DATA_BYTE_SIZE * 2) as u16);
+        assert_eq!(page.header().pd_upper, DEFAULT_BLOCK_SIZE - entry_size1 - entry_size2);
+        assert_eq!(page.is_empty(), false);
+        assert_eq!(page.entry_count(), 2);
+        assert_eq!(page.get_item(1).lp_len(), 4);
+        assert_eq!(page.get_entry(1).unwrap(), entry2);
+    }
+}
