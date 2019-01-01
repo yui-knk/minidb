@@ -34,7 +34,7 @@ fn main() {
     let config = Config::new(base_dir.to_string());
 
     match matches.subcommand() {
-        ("init",  Some(_)) => {
+        ("init", Some(_)) => {
             let init = InitCommand::new(config);
             
             match init.execute() {
@@ -45,7 +45,7 @@ fn main() {
                 }
             }
         },
-        ("create_db",  Some(sub_m)) => {
+        ("create_db", Some(sub_m)) => {
             let dbname = sub_m.value_of("dbname").unwrap();
             let create_db = CreateDatabaseCommand::new(config);
 
@@ -57,7 +57,7 @@ fn main() {
                 }
             }
         },
-        ("create_table",  Some(sub_m)) => {
+        ("create_table", Some(sub_m)) => {
             let dbname = sub_m.value_of("dbname").unwrap();
             let tablename = sub_m.value_of("tablename").unwrap();
             let create_table = CreateTableCommand::new(config);

@@ -15,6 +15,10 @@ impl Config {
         }
     }
 
+    // root directory / "global" / table name /
+    // Under the "table name"
+    // * "data": table file
+    //
     // root directory / "base" / database name / table name /
     //
     // Under the "table name"
@@ -25,6 +29,10 @@ impl Config {
 
     pub fn base_dir_path(&self) -> PathBuf {
         self.root_dir_path().join("base")
+    }
+
+    pub fn global_dir_path(&self) -> PathBuf {
+        self.root_dir_path().join("global")
     }
 
     pub fn database_dir_path(&self, dbname: String) -> PathBuf {
@@ -56,6 +64,13 @@ mod tests {
         let config = Config::new("/mydb".to_string());
 
         assert_eq!(config.base_dir_path(), PathBuf::from("/mydb/base"));
+    }
+
+    #[test]
+    fn test_global_dir_path() {
+        let config = Config::new("/mydb".to_string());
+
+        assert_eq!(config.global_dir_path(), PathBuf::from("/mydb/global"));
     }
 
     #[test]
