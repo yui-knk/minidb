@@ -23,19 +23,58 @@ impl Config {
         Path::new(&self.root_dir_name).to_path_buf()
     }
 
-    pub fn root_base_dir_path(&self) -> PathBuf {
+    pub fn base_dir_path(&self) -> PathBuf {
         self.root_dir_path().join("base")
     }
 
-    pub fn root_database_dir_path(&self, dbname: String) -> PathBuf {
-        self.root_dir_path().join(dbname)
+    pub fn database_dir_path(&self, dbname: String) -> PathBuf {
+        self.base_dir_path().join(dbname)
     }
 
-    pub fn root_table_dir_path(&self, dbname: String, tablename: String) -> PathBuf {
-        self.root_database_dir_path(dbname).join(tablename)
+    pub fn table_dir_path(&self, dbname: String, tablename: String) -> PathBuf {
+        self.database_dir_path(dbname).join(tablename)
     }
 
-    pub fn root_data_file_path(&self, dbname: String, tablename: String) -> PathBuf {
-        self.root_table_dir_path(dbname, tablename).join("data")
+    pub fn data_file_path(&self, dbname: String, tablename: String) -> PathBuf {
+        self.table_dir_path(dbname, tablename).join("data")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_root_dir_path() {
+        let config = Config::new("/mydb".to_string());
+
+        assert_eq!(config.root_dir_path(), PathBuf::from("/mydb"));
+    }
+
+    #[test]
+    fn test_base_dir_path() {
+        let config = Config::new("/mydb".to_string());
+
+        assert_eq!(config.base_dir_path(), PathBuf::from("/mydb/base"));
+    }
+
+    #[test]
+    fn test_database_dir_path() {
+        let config = Config::new("/mydb".to_string());
+
+        assert_eq!(config.database_dir_path("db1".to_string()), PathBuf::from("/mydb/base/db1"));
+    }
+
+    #[test]
+    fn test_table_dir_path() {
+        let config = Config::new("/mydb".to_string());
+
+        assert_eq!(config.table_dir_path("db1".to_string(), "table1".to_string()), PathBuf::from("/mydb/base/db1/table1"));
+    }
+    #[test]
+    fn test_data_file_path() {
+        let config = Config::new("/mydb".to_string());
+
+        assert_eq!(config.data_file_path("db1".to_string(), "table1".to_string()), PathBuf::from("/mydb/base/db1/table1/data"));
     }
 }

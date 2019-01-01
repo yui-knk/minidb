@@ -15,7 +15,7 @@ impl InitCommand {
     }
 
     fn create_base_dir(&self) -> std::io::Result<()> {
-        fs::create_dir_all(self.config.root_base_dir_path())?;
+        fs::create_dir_all(self.config.base_dir_path())?;
         Ok(())
     }
 }
