@@ -35,15 +35,23 @@ impl Config {
         self.root_dir_path().join("global")
     }
 
-    pub fn database_dir_path(&self, dbname: String) -> PathBuf {
+    pub fn system_catalog_dir_path<P: AsRef<Path>>(&self, tablename: P) -> PathBuf {
+        self.global_dir_path().join(tablename)
+    }
+
+    pub fn system_catalog_file_path<P: AsRef<Path>>(&self, tablename: P) -> PathBuf {
+        self.system_catalog_dir_path(tablename).join("data")
+    }
+
+    pub fn database_dir_path<P: AsRef<Path>>(&self, dbname: P) -> PathBuf {
         self.base_dir_path().join(dbname)
     }
 
-    pub fn table_dir_path(&self, dbname: String, tablename: String) -> PathBuf {
+    pub fn table_dir_path<P: AsRef<Path>>(&self, dbname: P, tablename: P) -> PathBuf {
         self.database_dir_path(dbname).join(tablename)
     }
 
-    pub fn data_file_path(&self, dbname: String, tablename: String) -> PathBuf {
+    pub fn data_file_path<P: AsRef<Path>>(&self, dbname: P, tablename: P) -> PathBuf {
         self.table_dir_path(dbname, tablename).join("data")
     }
 }
@@ -74,22 +82,36 @@ mod tests {
     }
 
     #[test]
+    fn test_system_catalog_dir_path() {
+        let config = Config::new("/mydb".to_string());
+
+        assert_eq!(config.system_catalog_dir_path("mini_database"), PathBuf::from("/mydb/global/mini_database"));
+    }
+
+    #[test]
+    fn test_system_catalog_file_path() {
+        let config = Config::new("/mydb".to_string());
+
+        assert_eq!(config.system_catalog_file_path("mini_database"), PathBuf::from("/mydb/global/mini_database/data"));
+    }
+
+    #[test]
     fn test_database_dir_path() {
         let config = Config::new("/mydb".to_string());
 
-        assert_eq!(config.database_dir_path("db1".to_string()), PathBuf::from("/mydb/base/db1"));
+        assert_eq!(config.database_dir_path("db1"), PathBuf::from("/mydb/base/db1"));
     }
 
     #[test]
     fn test_table_dir_path() {
         let config = Config::new("/mydb".to_string());
 
-        assert_eq!(config.table_dir_path("db1".to_string(), "table1".to_string()), PathBuf::from("/mydb/base/db1/table1"));
+        assert_eq!(config.table_dir_path("db1", "table1"), PathBuf::from("/mydb/base/db1/table1"));
     }
     #[test]
     fn test_data_file_path() {
         let config = Config::new("/mydb".to_string());
 
-        assert_eq!(config.data_file_path("db1".to_string(), "table1".to_string()), PathBuf::from("/mydb/base/db1/table1/data"));
+        assert_eq!(config.data_file_path("db1", "table1"), PathBuf::from("/mydb/base/db1/table1/data"));
     }
 }
