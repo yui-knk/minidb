@@ -49,7 +49,7 @@ fn main() {
             let dbname = sub_m.value_of("dbname").unwrap();
             let create_db = CreateDatabaseCommand::new(config);
 
-            match create_db.execute(dbname.to_string()) {
+            match create_db.execute(dbname) {
                 Ok(_) => {},
                 Err(msg) => {
                     println!("Error: '{}'", msg);
@@ -62,7 +62,7 @@ fn main() {
             let tablename = sub_m.value_of("tablename").unwrap();
             let create_table = CreateTableCommand::new(config);
 
-            match create_table.execute(dbname.to_string(), tablename.to_string()) {
+            match create_table.execute(dbname, tablename) {
                 Ok(_) => {},
                 Err(msg) => {
                     println!("Error: '{}'", msg);

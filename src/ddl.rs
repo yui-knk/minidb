@@ -1,6 +1,7 @@
 use std::fs;
-use std::io::{Error, ErrorKind};
+use std::io::{self, Error, ErrorKind};
 use config::Config;
+use catalog::mini_database::MiniDatabase;
 
 pub struct CreateDatabaseCommand {
     config: Config,
@@ -15,12 +16,14 @@ impl CreateDatabaseCommand {
         CreateDatabaseCommand { config: config }
     }
 
-    pub fn execute(&self, dbname: String) -> std::io::Result<()> {
+    pub fn execute(&self, dbname: &str) -> io::Result<()> {
         self.check_base_dir()?;
-        self.create_database_dir(dbname)
+        self.create_database_dir(dbname);
+        self.add_record(dbname);
+        Ok(())
     }
 
-    fn check_base_dir(&self) -> std::io::Result<()> {
+    fn check_base_dir(&self) -> io::Result<()> {
         if self.config.base_dir_path().exists() {
             Ok(())
         } else {
@@ -31,8 +34,14 @@ impl CreateDatabaseCommand {
         }
     }
 
-    fn create_database_dir(&self, dbname: String) -> std::io::Result<()> {
+    fn create_database_dir(&self, dbname: &str) -> io::Result<()> {
         fs::create_dir(self.config.database_dir_path(dbname))
+    }
+
+    fn add_record(&self, dbname: &str) {
+        let mut db = MiniDatabase::build_from_config(&self.config).unwrap();
+        db.add_record(dbname.to_string());
+        db.save(&self.config);
     }
 }
 
@@ -41,12 +50,12 @@ impl CreateTableCommand {
         CreateTableCommand { config: config }
     }
 
-    pub fn execute(&self, dbname: String, tablename: String) -> std::io::Result<()> {
+    pub fn execute(&self, dbname: &str, tablename: &str) -> io::Result<()> {
         self.check_base_dir()?;
         self.create_table_dir(dbname, tablename)
     }
 
-    fn check_base_dir(&self) -> std::io::Result<()> {
+    fn check_base_dir(&self) -> io::Result<()> {
         if self.config.base_dir_path().exists() {
             Ok(())
         } else {
@@ -57,7 +66,7 @@ impl CreateTableCommand {
         }
     }
 
-    fn create_table_dir(&self, dbname: String, tablename: String) -> std::io::Result<()> {
+    fn create_table_dir(&self, dbname: &str, tablename: &str) -> io::Result<()> {
         fs::create_dir(self.config.table_dir_path(dbname, tablename))
     }
 }
