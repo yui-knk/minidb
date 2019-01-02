@@ -1,7 +1,8 @@
 use std::fs;
 use std::io::{self, Error, ErrorKind};
 use config::Config;
-use catalog::mini_database::MiniDatabase;
+use catalog::catalog::RecordManeger;
+use catalog::mini_database::MiniDatabaseRecord;
 
 pub struct CreateDatabaseCommand {
     config: Config,
@@ -18,7 +19,7 @@ impl CreateDatabaseCommand {
 
     pub fn execute(&self, dbname: &str) -> io::Result<()> {
         self.check_base_dir()?;
-        self.create_database_dir(dbname);
+        self.create_database_dir(dbname)?;
         self.add_record(dbname);
         Ok(())
     }
@@ -39,8 +40,9 @@ impl CreateDatabaseCommand {
     }
 
     fn add_record(&self, dbname: &str) {
-        let mut db = MiniDatabase::build_from_config(&self.config).unwrap();
-        db.add_record(dbname.to_string());
+        let mut db: RecordManeger<MiniDatabaseRecord> = RecordManeger::build_from_config("mini_database".to_string(), &self.config).unwrap();
+        let record = MiniDatabaseRecord::new(dbname.to_string());
+        db.add_record(record);
         db.save(&self.config);
     }
 }

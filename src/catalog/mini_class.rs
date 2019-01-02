@@ -1,17 +1,18 @@
-// // 
+// This is for most everything that has columns or is otherwise
+// similar to a table. For example "table".
 
-// const NAME: str = "mini_class";
+const NAME: &'static str = "mini_class";
 
-// struct Record {
-    
-// }
+struct Record {
+    name: String,
+}
 
-// struct MiniClass {
-// }
+struct MiniClass {
+}
 
-// impl MiniClass {
+impl MiniClass {
 
-//     pub fn name(&self) -> &str {
-//         &NAME
-//     }
-// }
+    pub fn name(&self) -> &str {
+        &NAME
+    }
+}
