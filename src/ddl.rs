@@ -2,6 +2,7 @@ use std::fs;
 use std::io::{self, Error, ErrorKind};
 use config::Config;
 use catalog::catalog::RecordManeger;
+use catalog::mini_class::MiniClassRecord;
 use catalog::mini_database::MiniDatabaseRecord;
 
 pub struct CreateDatabaseCommand {
@@ -54,7 +55,9 @@ impl CreateTableCommand {
 
     pub fn execute(&self, dbname: &str, tablename: &str) -> io::Result<()> {
         self.check_base_dir()?;
-        self.create_table_dir(dbname, tablename)
+        self.create_table_dir(dbname, tablename)?;
+        self.add_record(dbname, tablename);
+        Ok(())
     }
 
     fn check_base_dir(&self) -> io::Result<()> {
@@ -70,5 +73,12 @@ impl CreateTableCommand {
 
     fn create_table_dir(&self, dbname: &str, tablename: &str) -> io::Result<()> {
         fs::create_dir(self.config.table_dir_path(dbname, tablename))
+    }
+
+    fn add_record(&self, dbname: &str, tablename: &str) {
+        let mut db: RecordManeger<MiniClassRecord> = RecordManeger::build_from_config("mini_class".to_string(), &self.config).unwrap();
+        let record = MiniClassRecord::new(tablename.to_string(), dbname.to_string());
+        db.add_record(record);
+        db.save(&self.config);
     }
 }
