@@ -4,8 +4,8 @@ use std::path::{Path};
 use config::Config;
 
 pub trait Record {
-    fn build_from_line(line: String) -> Self;
-    fn as_bytes(&self) -> &[u8];
+    fn build_from_line(line: String) -> io::Result<Box<Self>>;
+    fn save_to_file(&self, w: &mut Write) -> io::Result<usize>;
 }
 
 pub struct RecordManeger<T: Record> {
@@ -31,7 +31,8 @@ impl<T: Record> RecordManeger<T> {
         let buf = BufReader::new(f);
 
         for line in buf.lines() {
-            records.push(Box::new(T::build_from_line(line.unwrap())));
+            let r = T::build_from_line(line.unwrap())?;
+            records.push(r);
         }
 
         Ok(RecordManeger {
@@ -53,7 +54,7 @@ impl<T: Record> RecordManeger<T> {
         let mut buf = BufWriter::new(f);
 
         for record in &self.records {
-            buf.write(record.as_bytes()).unwrap();
+            record.save_to_file(&mut buf).unwrap();
             buf.write(b"\n").unwrap();
         }
 
@@ -76,8 +77,8 @@ mod tests {
         let db: RecordManeger<MiniDatabaseRecord> = RecordManeger::build_from_file("mini_database".to_string(), tmpfile.path()).unwrap();
 
         assert_eq!(db.records.len(), 2);
-        assert_eq!(db.records[0].as_bytes(), b"foo");
-        assert_eq!(db.records[1].as_bytes(), b"bar");
+        assert_eq!(db.records[0].name, "foo".to_string());
+        assert_eq!(db.records[1].name, "bar".to_string());
     }
 
     #[test]
