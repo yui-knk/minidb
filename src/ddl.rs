@@ -4,6 +4,7 @@ use config::Config;
 use catalog::catalog::RecordManeger;
 use catalog::mini_class::MiniClassRecord;
 use catalog::mini_database::MiniDatabaseRecord;
+use catalog::mini_attribute::MiniAttributeRecord;
 
 pub struct CreateDatabaseCommand {
     config: Config,
@@ -56,7 +57,8 @@ impl CreateTableCommand {
     pub fn execute(&self, dbname: &str, tablename: &str) -> io::Result<()> {
         self.check_base_dir()?;
         self.create_table_dir(dbname, tablename)?;
-        self.add_record(dbname, tablename);
+        self.add_record_to_mini_class(dbname, tablename);
+        self.add_record_to_mini_attribute("id", dbname, tablename, "integer", 4);
         Ok(())
     }
 
@@ -75,9 +77,22 @@ impl CreateTableCommand {
         fs::create_dir(self.config.table_dir_path(dbname, tablename))
     }
 
-    fn add_record(&self, dbname: &str, tablename: &str) {
+    fn add_record_to_mini_class(&self, dbname: &str, tablename: &str) {
         let mut db: RecordManeger<MiniClassRecord> = RecordManeger::build_from_config("mini_class".to_string(), &self.config).unwrap();
         let record = MiniClassRecord::new(tablename.to_string(), dbname.to_string());
+        db.add_record(record);
+        db.save(&self.config);
+    }
+
+    fn add_record_to_mini_attribute(&self, name: &str, dbname: &str, tablename: &str, type_name: &str, len: usize) {
+        let mut db: RecordManeger<MiniAttributeRecord> = RecordManeger::build_from_config("mini_attribute".to_string(), &self.config).unwrap();
+        let record = MiniAttributeRecord::new(
+            name.to_string(),
+            dbname.to_string(),
+            tablename.to_string(),
+            type_name.to_string(),
+            len,
+        );
         db.add_record(record);
         db.save(&self.config);
     }
