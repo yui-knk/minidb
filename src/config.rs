@@ -15,12 +15,13 @@ impl Config {
         }
     }
 
+    // [Catalogs]
     // root directory / "global" / table name /
     // Under the "table name"
     // * "data": table file
     //
+    // [User defined tables]
     // root directory / "base" / database name / table name /
-    //
     // Under the "table name"
     // * "data": table file
     pub fn root_dir_path(&self) -> PathBuf {
