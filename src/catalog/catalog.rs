@@ -10,7 +10,7 @@ pub trait Record {
 
 pub struct RecordManeger<T: Record> {
     name: String,
-    records: Vec<Box<T>>,
+    pub records: Vec<Box<T>>,
 }
 
 impl<T: Record> RecordManeger<T> {

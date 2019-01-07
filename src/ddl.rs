@@ -59,6 +59,7 @@ impl CreateTableCommand {
         self.create_table_dir(dbname, tablename)?;
         self.add_record_to_mini_class(dbname, tablename);
         self.add_record_to_mini_attribute("id", dbname, tablename, "integer", 4);
+        self.add_record_to_mini_attribute("age", dbname, tablename, "integer", 4);
         Ok(())
     }
 

@@ -7,3 +7,4 @@ authors = ["yui-knk <spiketeika@gmail.com>"]
 clap = "*"
 libc = "*"
 tempfile = "*"
+byteorder = "*"

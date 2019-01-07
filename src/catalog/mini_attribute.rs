@@ -1,19 +1,20 @@
 // This is for columns.
 
+use std::borrow::Borrow;
 use std::io::{self, Error, ErrorKind, Write};
-use catalog::catalog::Record;
+use catalog::catalog::{Record, RecordManeger};
 
 #[derive(Debug)]
 pub struct MiniAttributeRecord {
     // name of attribute
-    name: String,
+    pub name: String,
     // name of db this attribute belongs to
-    dbname: String,
+    pub dbname: String,
     // name of class this attribute belongs to
-    class_name: String,
-    type_name: String,
+    pub class_name: String,
+    pub type_name: String,
     // Byte length of value
-    len: usize,
+    pub len: usize,
 }
 
 impl Record for MiniAttributeRecord {
@@ -59,6 +60,17 @@ impl MiniAttributeRecord {
         }
     }
 }
+
+impl RecordManeger<MiniAttributeRecord> {
+    pub fn attributes(&self, dbname: &str, table_name: &str) -> Vec<&MiniAttributeRecord> {
+        self.records
+            .iter()
+            .filter(|e| e.dbname == dbname && e.class_name == table_name)
+            .map(|e| e.borrow())
+            .collect()
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

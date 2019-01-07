@@ -4,6 +4,7 @@ extern crate clap;
 use clap::{Arg, App, SubCommand};
 use minidb::config::{Config};
 use minidb::ddl::{CreateDatabaseCommand, CreateTableCommand};
+use minidb::dml::{InsertIntoCommnad, KeyValueBuilder};
 use minidb::init::{InitCommand};
 
 fn main() {
@@ -26,6 +27,20 @@ fn main() {
                                        .required(true)
                                        .takes_value(true))
                                   .arg(Arg::with_name("tablename")
+                                       .required(true)
+                                       .takes_value(true)))
+                          .subcommand(
+                              SubCommand::with_name("insert_into")
+                                  .arg(Arg::with_name("dbname")
+                                       .required(true)
+                                       .takes_value(true))
+                                  .arg(Arg::with_name("tablename")
+                                       .required(true)
+                                       .takes_value(true))
+                                  .arg(Arg::with_name("id")
+                                       .required(true)
+                                       .takes_value(true))
+                                  .arg(Arg::with_name("age")
                                        .required(true)
                                        .takes_value(true)))
                           .get_matches();
@@ -63,6 +78,24 @@ fn main() {
             let create_table = CreateTableCommand::new(config);
 
             match create_table.execute(dbname, tablename) {
+                Ok(_) => {},
+                Err(msg) => {
+                    println!("Error: '{}'", msg);
+                    ::std::process::exit(1);
+                }
+            }
+        },
+        ("insert_into", Some(sub_m)) => {
+            let dbname = sub_m.value_of("dbname").unwrap();
+            let tablename = sub_m.value_of("tablename").unwrap();
+            let id = sub_m.value_of("id").unwrap();
+            let age = sub_m.value_of("age").unwrap();
+            let mut builder = KeyValueBuilder::new();
+            let insert_into = InsertIntoCommnad::new(&config);
+            builder.add_pair("id".to_string(), id.to_string());
+            builder.add_pair("age".to_string(), age.to_string());
+
+            match insert_into.execute(&dbname, &tablename, builder.build()) {
                 Ok(_) => {},
                 Err(msg) => {
                     println!("Error: '{}'", msg);
