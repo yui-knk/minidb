@@ -1,4 +1,8 @@
 use std::mem;
+use std::fs::File;
+use std::path::{Path};
+use std::os::unix::io::{IntoRawFd, FromRawFd};
+use config::DEFAULT_BLOCK_SIZE;
 
 type LocationIndex = u16;
 
@@ -128,6 +132,44 @@ impl Page {
         }
     }
 
+    pub fn load<P: AsRef<Path>>(path: P) -> Page {
+        let f = File::open(&path).unwrap();
+        let s = DEFAULT_BLOCK_SIZE;
+        let page = Page::new(s);
+
+        unsafe {
+            let fd = f.into_raw_fd();
+            let rbyte = libc::read(fd, page.header as *mut libc::c_void, s as usize);
+            libc::close(fd);
+
+            if rbyte != s as isize {
+                panic!(
+                    "failed to read file. Expect to read {} bytes but read only {} bytes",
+                    s, rbyte
+                );
+            }
+        }
+
+        page
+    }
+
+    pub fn write_bytes(&self, f: File) -> File {
+        unsafe {
+            let fd = f.into_raw_fd();
+            let s = DEFAULT_BLOCK_SIZE;
+            let wbyte = libc::write(fd, self.header as *const libc::c_void, s as usize);
+
+            if wbyte != s as isize {
+                panic!(
+                    "failed to write file. Expect to write {} bytes but write only {} bytes",
+                    s, wbyte
+                );
+            }
+
+            File::from_raw_fd(fd)
+        }
+    }
+
     pub fn header(&self) -> &Header {
         unsafe {
             if self.header.is_null() {
@@ -160,12 +202,12 @@ impl Page {
             let item = ItemIdData::new_with_lps(self.header().pd_upper, 0, len);
 
             unsafe {
-                let item_p: *mut ItemIdData = self.header.add(self.header().pd_lower as usize) as *mut ItemIdData;
+                let item_p: *mut ItemIdData = (self.header as *const u8).add(self.header().pd_lower as usize) as *mut ItemIdData;
                 *item_p = item;
 
                 for i in 0..len {
                     let off = self.mut_header().pd_upper;
-                    let p: *mut u8 = self.header.add((off + MEM_SIZE_OF_U8_AS_U16 * i) as usize) as *mut u8;
+                    let p: *mut u8 = (self.header as *const u8).add((off + MEM_SIZE_OF_U8_AS_U16 * i) as usize) as *mut u8;
                     *p = entry[i as usize];
                 }
             }
@@ -185,15 +227,26 @@ impl Page {
         (((self.header().pd_lower as usize) - HEADER_BYTE_SIZE) / ITEM_ID_DATA_BYTE_SIZE) as u16
     }
 
-    fn get_item(&self, index: u16) -> &ItemIdData {
+    pub fn print_info(&self) {
+        println!(
+            "entry_count: {}.\npd_lower: {}.\npd_upper: {}.\nHEADER_BYTE_SIZE: {}.\nITEM_ID_DATA_BYTE_SIZE: {}.",
+            self.entry_count(),
+            self.header().pd_lower,
+            self.header().pd_upper,
+            HEADER_BYTE_SIZE,
+            ITEM_ID_DATA_BYTE_SIZE
+        );
+    }
+
+    pub fn get_item(&self, index: u16) -> &ItemIdData {
         unsafe {
-            &*(self.header.add(HEADER_BYTE_SIZE + ITEM_ID_DATA_BYTE_SIZE * (index as usize)) as *const ItemIdData)
+            &*((self.header as *const u8).add(HEADER_BYTE_SIZE + ITEM_ID_DATA_BYTE_SIZE * (index as usize)) as *const ItemIdData)
         }
     }
 
     // index is 0-origin.
     pub fn get_entry(&self, index: u16) -> Result<Vec<u8>, String> {
-        if index > self.entry_count() {
+        if index >= self.entry_count() {
             return Err(format!("Index over entry_count. index: {}, entry_count: {}", index, self.entry_count()));
         }
 
@@ -201,10 +254,10 @@ impl Page {
             let item_p: *const ItemIdData = self.get_item(index);
             let off = (*item_p).lp_off();
             let len = (*item_p).lp_len();
-            let mut v = Vec::with_capacity(len as usize);
+            let mut v = Vec::with_capacity(len as usize / MEM_SIZE_OF_U8);
 
             for i in 0..len {
-                let p: *const u8 = self.header.add((off + MEM_SIZE_OF_U8_AS_U16 * i) as usize) as *const u8;
+                let p: *const u8 = (self.header as *const u8).add((off + MEM_SIZE_OF_U8_AS_U16 * i) as usize) as *const u8;
                 v.push(*p);
             }
 
@@ -228,7 +281,6 @@ impl Drop for Page {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use config::DEFAULT_BLOCK_SIZE;
 
     #[test]
     fn test_item_id_data_lps() {
