@@ -1,10 +1,24 @@
 // This is for columns.
 
-use std::borrow::Borrow;
 use std::io::{self, Error, ErrorKind, Write};
+
 use catalog::catalog::{Record, RecordManeger};
 
 #[derive(Debug)]
+enum Ty {
+    // Signed 4 bytes integer
+    Integer,
+}
+
+fn ty_byte_len(ty: Ty) -> u16 {
+    match ty {
+        Integer => 4,
+    }
+}
+
+use self::Ty::*;
+
+#[derive(Debug, Clone)]
 pub struct MiniAttributeRecord {
     // name of attribute
     pub name: String,
@@ -59,14 +73,34 @@ impl MiniAttributeRecord {
             len: len
         }
     }
+
+    fn byte_len(&self) -> u16 {
+        ty_byte_len(self.ty())
+    }
+
+    fn ty(&self) -> Ty {
+        match self.type_name.as_str() {
+            "integer" => Integer,
+            _ => panic!("Unknown type '{}'", self.type_name)
+        }
+    }
 }
 
+// TODO: Define `Vec<&MiniAttributeRecord>` as struct.
 impl RecordManeger<MiniAttributeRecord> {
     pub fn attributes(&self, dbname: &str, table_name: &str) -> Vec<&MiniAttributeRecord> {
         self.records
             .iter()
             .filter(|e| e.dbname == dbname && e.class_name == table_name)
-            .map(|e| e.borrow())
+            .map(|e| e.as_ref())
+            .collect()
+    }
+
+    pub fn attributes_clone(&self, dbname: &str, table_name: &str) -> Vec<MiniAttributeRecord> {
+        self.records
+            .iter()
+            .filter(|e| e.dbname == dbname && e.class_name == table_name)
+            .map(|e| *e.clone())
             .collect()
     }
 }

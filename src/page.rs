@@ -6,10 +6,6 @@ use config::DEFAULT_BLOCK_SIZE;
 
 type LocationIndex = u16;
 
-pub struct PageMetaData {
-
-}
-
 // +----------------+---------------------------------+
 // | PageHeaderData | linp1 linp2 linp3 ...           |
 // +-----------+----+---------------------------------+
@@ -223,7 +219,7 @@ impl Page {
         self.header().pd_lower <= (self.header().pd_upper - len)
     }
 
-    fn entry_count(&self) -> u16 {
+    pub fn entry_count(&self) -> u16 {
         (((self.header().pd_lower as usize) - HEADER_BYTE_SIZE) / ITEM_ID_DATA_BYTE_SIZE) as u16
     }
 
@@ -241,6 +237,21 @@ impl Page {
     pub fn get_item(&self, index: u16) -> &ItemIdData {
         unsafe {
             &*((self.header as *const u8).add(HEADER_BYTE_SIZE + ITEM_ID_DATA_BYTE_SIZE * (index as usize)) as *const ItemIdData)
+        }
+    }
+
+    // index is 0-origin.
+    pub fn get_entry_pointer(&self, index: u16) -> Result<*const libc::c_void, String> {
+        if index >= self.entry_count() {
+            return Err(format!("Index over entry_count. index: {}, entry_count: {}", index, self.entry_count()));
+        }
+
+        unsafe {
+            let item_p: *const ItemIdData = self.get_item(index);
+            let off = (*item_p).lp_off();
+            let p: *const libc::c_void = (self.header as *const u8).add(off as usize) as *const libc::c_void;
+
+            Ok(p)
         }
     }
 

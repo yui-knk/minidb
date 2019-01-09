@@ -4,7 +4,7 @@ extern crate clap;
 use clap::{Arg, App, SubCommand};
 use minidb::config::{Config};
 use minidb::ddl::{CreateDatabaseCommand, CreateTableCommand};
-use minidb::dml::{InsertIntoCommnad, KeyValueBuilder};
+use minidb::dml::{InsertIntoCommnad, SelectFromCommnad, KeyValueBuilder};
 use minidb::init::{InitCommand};
 
 fn main() {
@@ -41,6 +41,20 @@ fn main() {
                                        .required(true)
                                        .takes_value(true))
                                   .arg(Arg::with_name("age")
+                                       .required(true)
+                                       .takes_value(true)))
+                          .subcommand(
+                              SubCommand::with_name("select_from")
+                                  .arg(Arg::with_name("dbname")
+                                       .required(true)
+                                       .takes_value(true))
+                                  .arg(Arg::with_name("tablename")
+                                       .required(true)
+                                       .takes_value(true))
+                                  .arg(Arg::with_name("key")
+                                       .required(true)
+                                       .takes_value(true))
+                                  .arg(Arg::with_name("value")
                                        .required(true)
                                        .takes_value(true)))
                           .get_matches();
@@ -96,6 +110,21 @@ fn main() {
             builder.add_pair("age".to_string(), age.to_string());
 
             match insert_into.execute(&dbname, &tablename, builder.build()) {
+                Ok(_) => {},
+                Err(msg) => {
+                    println!("Error: '{}'", msg);
+                    ::std::process::exit(1);
+                }
+            }
+        },
+        ("select_from", Some(sub_m)) => {
+            let dbname = sub_m.value_of("dbname").unwrap();
+            let tablename = sub_m.value_of("tablename").unwrap();
+            let select_from = SelectFromCommnad::new(&config);
+            let key = sub_m.value_of("key").unwrap();
+            let value = sub_m.value_of("value").unwrap();
+
+            match select_from.execute(&dbname, &tablename, key, value) {
                 Ok(_) => {},
                 Err(msg) => {
                     println!("Error: '{}'", msg);

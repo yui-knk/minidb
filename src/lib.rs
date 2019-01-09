@@ -16,3 +16,4 @@ pub mod ddl;
 pub mod dml;
 pub mod init;
 pub mod page;
+pub mod tuple;
