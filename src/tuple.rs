@@ -46,13 +46,28 @@ impl TupleTableSlot {
 
     // index is 0-origin.
     pub fn get_column(&self, index: usize) -> Box<Ty> {
-        if !(index < self.attrs_count()) {
-            panic!("Out of index. attrs_count: {}, index: {}", self.attrs_count(), index);
-        }
+        self.check_index(index);
 
         let attr = &self.tuple_desc.attrs[index];
         let ptr = self.attr_ptr(index) as *const libc::c_void;
         load_ty(attr.type_name.as_str(), ptr, 4).unwrap()
+    }
+
+    pub fn set_column(&mut self, index: usize, ty: &Ty) {
+        // TODO: we should also check type of passed `ty` matches with
+        //       the type of `attr`.
+        self.check_index(index);
+
+        let src = ty.as_pointer();
+        let n = ty.len();
+        let offset = self.tuple_desc.attrs_len(index) as usize;
+        self.heap_tuple.t_data.set_column(src, n, offset);
+    }
+
+    fn check_index(&self, index: usize) {
+        if !(index < self.attrs_count()) {
+            panic!("Out of index. attrs_count: {}, index: {}", self.attrs_count(), index);
+        }
     }
 
     fn attr_ptr(&self, index: usize) -> *const u8 {
@@ -115,6 +130,13 @@ impl HeapTupleHeaderData {
             libc::memcpy(self.data as *mut libc::c_void, src, n as usize);
         }
     }
+
+    fn set_column(&mut self, src: *const libc::c_void, n: u32, offset: usize) {
+        unsafe {
+            let dest: *mut libc::c_void = self.data.add(offset) as *mut libc::c_void;
+            libc::memcpy(dest, src, n as usize);
+        }
+    }
 }
 
 impl Drop for HeapTupleHeaderData {
@@ -132,6 +154,7 @@ impl Drop for HeapTupleHeaderData {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ty::Integer;
 
     #[test]
     fn test_tuple_table_slot() {
@@ -157,5 +180,31 @@ mod tests {
         unsafe {
             assert_eq!(slot.attr_ptr(1), slot.heap_tuple.t_data.data.add(4));
         }
+    }
+
+    #[test]
+    fn test_tuple_table_slot_get_set_column() {
+        let mut attrs = Vec::new();
+        attrs.push(MiniAttributeRecord::new(
+            "name".to_string(),
+            "dbname".to_string(),
+            "class_name".to_string(),
+            "integer".to_string(),
+            4
+        ));
+        attrs.push(MiniAttributeRecord::new(
+            "name".to_string(),
+            "dbname".to_string(),
+            "class_name".to_string(),
+            "integer".to_string(),
+            4
+        ));
+        let mut slot = TupleTableSlot::new(attrs);
+
+        slot.set_column(0, &Integer { elem: 10 });
+        slot.set_column(1, &Integer { elem: 22 });
+
+        assert_eq!(slot.get_column(0).as_string(), "10".to_string());
+        assert_eq!(slot.get_column(1).as_string(), "22".to_string());
     }
 }

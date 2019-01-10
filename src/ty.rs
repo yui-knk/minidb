@@ -5,8 +5,9 @@ use byteorder::{LittleEndian, WriteBytesExt};
 
 pub trait Ty {
     fn write_bytes(&self, wrt: &mut Write) -> std::io::Result<()>;
-    fn len(&self) -> usize;
+    fn len(&self) -> u32;
     fn as_string(&self) -> String;
+    fn as_pointer(&self) -> *const libc::c_void;
 }
 
 pub fn load_ty(type_name: &str, src: *const libc::c_void, n: u32) -> Result<Box<Ty>, String> {
@@ -34,20 +35,25 @@ pub fn build_ty(type_name: &str, row: &str) -> Result<Box<Ty>, String> {
 }
 
 // Signed 4 bytes integer
-struct Integer {
-    elem: i32,
+pub struct Integer {
+    pub elem: i32,
 }
 
 impl Ty for Integer {
     fn write_bytes(&self, wrt: &mut Write) -> std::io::Result<()> {
         wrt.write_i32::<LittleEndian>(self.elem)
-   }
+    }
 
-    fn len(&self) -> usize {
+    fn len(&self) -> u32 {
         4
     }
 
     fn as_string(&self) -> String {
         self.elem.to_string()
+    }
+
+    fn as_pointer(&self) -> *const libc::c_void {
+        let p: *const i32 = &self.elem;
+        p as *const libc::c_void
     }
 }
