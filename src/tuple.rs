@@ -44,6 +44,10 @@ impl TupleTableSlot {
         self.tuple_desc.attrs_count()
     }
 
+    pub fn attrs_total_len(&self) -> u32 {
+        self.tuple_desc.attrs_total_len()
+    }
+
     // index is 0-origin.
     pub fn get_column(&self, index: usize) -> Box<Ty> {
         self.check_index(index);
@@ -62,6 +66,10 @@ impl TupleTableSlot {
         let n = ty.len();
         let offset = self.tuple_desc.attrs_len(index) as usize;
         self.heap_tuple.t_data.set_column(src, n, offset);
+    }
+
+    pub fn data_ptr(&self) -> *const libc::c_void {
+        self.heap_tuple.t_data.data as *const libc::c_void
     }
 
     fn check_index(&self, index: usize) {
@@ -86,6 +94,10 @@ impl TupleDesc {
 
     fn attrs_count(&self) -> usize {
         self.attrs.len()
+    }
+
+    fn attrs_total_len(&self) -> u32 {
+        self.attrs.iter().fold(0, |acc, attr| acc + attr.len) as u32
     }
 
     fn attrs_len(&self, index: usize) -> u32 {

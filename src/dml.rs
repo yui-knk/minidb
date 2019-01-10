@@ -51,6 +51,8 @@ impl<'a> InsertIntoCommnad<'a> {
     pub fn execute(&self, dbname: &str, table_name: &str, key_values: Vec<KeyValue>) -> Result<(), String> {
         let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::build_from_config("mini_attribute".to_string(), self.config).unwrap();
         let attrs = rm.attributes(dbname, table_name);
+        let mut slot = TupleTableSlot::new(rm.attributes_clone(dbname, table_name));
+
         let path = self.config.data_file_path(dbname, table_name);
         let mut page = if path.exists() {
             Page::load(&path)
@@ -62,16 +64,16 @@ impl<'a> InsertIntoCommnad<'a> {
             return Err(format!("Length not match. attrs: {}, key_values: {}", attrs.len(), key_values.len()));
         }
 
-        for (kv, attr) in key_values.iter().zip(attrs.iter()) {
+        for ((i, kv), attr) in key_values.iter().enumerate().zip(attrs.iter()) {
             if kv.key != attr.name {
                 return Err(format!("Name not match. attrs: {}, key_values: {}", attr.name, kv.key));
             }
 
             let t = ty::build_ty(&attr.type_name, &kv.value)?;
-            let mut buf = Vec::new();
-            t.write_bytes(&mut buf).unwrap();
-            page.add_entry(&buf);
+            slot.set_column(i, t.as_ref());
         }
+
+        page.add_tuple_slot_entry(&slot).unwrap();
 
         let f = File::create(path).unwrap();
         page.write_bytes(f);

@@ -3,6 +3,7 @@ use std::fs::File;
 use std::path::{Path};
 use std::os::unix::io::{IntoRawFd, FromRawFd};
 use config::DEFAULT_BLOCK_SIZE;
+use tuple::{TupleTableSlot};
 
 type LocationIndex = u16;
 
@@ -190,29 +191,31 @@ impl Page {
         self.header().pd_lower as usize <= HEADER_BYTE_SIZE
     }
 
-    pub fn add_entry(&mut self, entry: &Vec<u8>) -> Result<(), String> {
-        let len = (entry.len() * MEM_SIZE_OF_U8) as u16;
-
-        if self.has_space(len) {
-            self.mut_header().pd_upper -= len;
-            let item = ItemIdData::new_with_lps(self.header().pd_upper, 0, len);
+    pub fn add_entry(&mut self, src: *const libc::c_void, n: u16) -> Result<(), String> {
+        if self.has_space(n) {
+            self.mut_header().pd_upper -= n;
+            let item = ItemIdData::new_with_lps(self.header().pd_upper, 0, n);
 
             unsafe {
                 let item_p: *mut ItemIdData = (self.header as *const u8).add(self.header().pd_lower as usize) as *mut ItemIdData;
+                let tuple_head_p: *mut libc::c_void = (self.header as *const u8).add(self.header().pd_upper as usize) as *mut libc::c_void;
                 *item_p = item;
-
-                for i in 0..len {
-                    let off = self.mut_header().pd_upper;
-                    let p: *mut u8 = (self.header as *const u8).add((off + MEM_SIZE_OF_U8_AS_U16 * i) as usize) as *mut u8;
-                    *p = entry[i as usize];
-                }
+                libc::memcpy(tuple_head_p, src, n as usize);
             }
 
             self.mut_header().pd_lower += ITEM_ID_DATA_BYTE_SIZE as u16;
             Ok(())
         } else {
-            Err(format!("Does not have enough space for {}", len))
+            Err(format!("Does not have enough space for {}", n))
         }
+    }
+
+    pub fn add_tuple_slot_entry(&mut self, slot: &TupleTableSlot) -> Result<(), String> {
+        self.add_entry(slot.data_ptr(), slot.attrs_total_len() as u16)
+    }
+
+    pub fn add_vec_entry(&mut self, entry: &Vec<u8>) -> Result<(), String> {
+        self.add_entry(entry.as_ptr() as *const libc::c_void, entry.len() as u16)
     }
 
     fn has_space(&self, len: u16) -> bool {
@@ -292,6 +295,8 @@ impl Drop for Page {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use catalog::mini_attribute::MiniAttributeRecord;
+    use ty::Integer;
 
     #[test]
     fn test_item_id_data_lps() {
@@ -332,14 +337,14 @@ mod tests {
     }
 
     #[test]
-    fn test_add_entry() {
+    fn test_add_vec_entry() {
         let mut page = Page::new(DEFAULT_BLOCK_SIZE);
         let entry1: Vec<u8> = vec![1, 2, 3];
         let entry2: Vec<u8> = vec![3, 2, 1, 0];
         let entry_size1 = (mem::size_of::<u8>() * 3) as u16;
         let entry_size2 = (mem::size_of::<u8>() * 4) as u16;
 
-        page.add_entry(&entry1).unwrap();
+        page.add_vec_entry(&entry1).unwrap();
         assert_eq!(page.header().pd_lower, (HEADER_BYTE_SIZE + ITEM_ID_DATA_BYTE_SIZE) as u16);
         assert_eq!(page.header().pd_upper, DEFAULT_BLOCK_SIZE - entry_size1);
         assert_eq!(page.is_empty(), false);
@@ -347,12 +352,44 @@ mod tests {
         assert_eq!(page.get_item(0).lp_len(), 3);
         assert_eq!(page.get_entry(0).unwrap(), entry1);
 
-        page.add_entry(&entry2).unwrap();
+        page.add_vec_entry(&entry2).unwrap();
         assert_eq!(page.header().pd_lower, (HEADER_BYTE_SIZE + ITEM_ID_DATA_BYTE_SIZE * 2) as u16);
         assert_eq!(page.header().pd_upper, DEFAULT_BLOCK_SIZE - entry_size1 - entry_size2);
         assert_eq!(page.is_empty(), false);
         assert_eq!(page.entry_count(), 2);
         assert_eq!(page.get_item(1).lp_len(), 4);
         assert_eq!(page.get_entry(1).unwrap(), entry2);
+    }
+
+    #[test]
+    fn test_add_tuple_slot_entry() {
+        let mut page = Page::new(DEFAULT_BLOCK_SIZE);
+        let mut attrs = Vec::new();
+        attrs.push(MiniAttributeRecord::new(
+            "name".to_string(),
+            "dbname".to_string(),
+            "class_name".to_string(),
+            "integer".to_string(),
+            4
+        ));
+        attrs.push(MiniAttributeRecord::new(
+            "name".to_string(),
+            "dbname".to_string(),
+            "class_name".to_string(),
+            "integer".to_string(),
+            4
+        ));
+        let mut slot = TupleTableSlot::new(attrs);
+        let slot_data_size = (mem::size_of::<i32>() * 2) as u16;
+
+        slot.set_column(0, &Integer { elem: 10 });
+        slot.set_column(1, &Integer { elem: 22 });
+        page.add_tuple_slot_entry(&slot).unwrap();
+
+        assert_eq!(page.header().pd_lower, (HEADER_BYTE_SIZE + ITEM_ID_DATA_BYTE_SIZE * 1) as u16);
+        assert_eq!(page.header().pd_upper, DEFAULT_BLOCK_SIZE - slot_data_size);
+        assert_eq!(page.is_empty(), false);
+        assert_eq!(page.entry_count(), 1);
+        assert_eq!(page.get_item(0).lp_len(), 4 * 2);
     }
 }
