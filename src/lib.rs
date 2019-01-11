@@ -11,6 +11,7 @@ pub mod catalog {
     pub mod mini_database;
 }
 
+pub mod buffer_manager;
 pub mod ty;
 pub mod ddl;
 pub mod dml;

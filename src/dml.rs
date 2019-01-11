@@ -1,11 +1,11 @@
 use ty;
 use std::fs::File;
 use page::{Page};
-use config::Config;
+use config::{Config, DEFAULT_BLOCK_SIZE};
 use catalog::catalog::RecordManeger;
 use catalog::mini_attribute::MiniAttributeRecord;
-use config::DEFAULT_BLOCK_SIZE;
 use tuple::{TupleTableSlot};
+use buffer_manager::{RelFileNode, BufferManager};
 
 pub struct InsertIntoCommnad<'a> {
     config: &'a Config,
@@ -95,12 +95,13 @@ impl<'a> SelectFromCommnad<'a> {
         let attrs_len = attrs.iter().fold(0, |acc, attr| acc + attr.len) as u32;
         let mut slot = TupleTableSlot::new(attrs);
 
-        let path = self.config.data_file_path(dbname, table_name);
-        let mut page = if path.exists() {
-            Page::load(&path)
-        } else {
-            Page::new(DEFAULT_BLOCK_SIZE)
+        let mut bm = BufferManager::new(1, self.config);
+        let file_node = RelFileNode {
+            table_name: table_name.to_string(),
+            dbname: dbname.to_string(),
         };
+        let buf = bm.read_buffer(file_node, 0);
+        let page = bm.get_page(buf);
 
         for i in 0..(page.entry_count()) {
             slot.load_data(page.get_entry_pointer(i).unwrap(), attrs_len);

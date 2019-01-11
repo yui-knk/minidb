@@ -6,6 +6,8 @@ pub struct Config {
 }
 
 pub const DEFAULT_BLOCK_SIZE: u16 = 1024 * 8;
+// NBuffers in pg.
+pub const N_BUFFERS: usize = 10;
 
 impl Config {
     pub fn new(root_dir_name: String) -> Config {
