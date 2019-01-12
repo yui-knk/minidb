@@ -62,7 +62,7 @@ fn main() {
                           .get_matches();
 
     let base_dir = matches.value_of("base_dir").unwrap();
-    let config = Config::new(base_dir.to_string());
+    let config = Rc::new(Config::new(base_dir.to_string()));
 
     match matches.subcommand() {
         ("init", Some(_)) => {
@@ -78,7 +78,7 @@ fn main() {
         },
         ("create_db", Some(sub_m)) => {
             let dbname = sub_m.value_of("dbname").unwrap();
-            let create_db = CreateDatabaseCommand::new(Rc::new(config));
+            let create_db = CreateDatabaseCommand::new(config);
 
             match create_db.execute(dbname) {
                 Ok(_) => {},
@@ -91,7 +91,7 @@ fn main() {
         ("create_table", Some(sub_m)) => {
             let dbname = sub_m.value_of("dbname").unwrap();
             let tablename = sub_m.value_of("tablename").unwrap();
-            let create_table = CreateTableCommand::new(Rc::new(config));
+            let create_table = CreateTableCommand::new(config);
 
             match create_table.execute(dbname, tablename) {
                 Ok(_) => {},
@@ -107,7 +107,7 @@ fn main() {
             let id = sub_m.value_of("id").unwrap();
             let age = sub_m.value_of("age").unwrap();
             let mut builder = KeyValueBuilder::new();
-            let insert_into = InsertIntoCommnad::new(Rc::new(config));
+            let insert_into = InsertIntoCommnad::new(config);
             builder.add_pair("id".to_string(), id.to_string());
             builder.add_pair("age".to_string(), age.to_string());
 
@@ -122,7 +122,7 @@ fn main() {
         ("select_from", Some(sub_m)) => {
             let dbname = sub_m.value_of("dbname").unwrap();
             let tablename = sub_m.value_of("tablename").unwrap();
-            let select_from = SelectFromCommnad::new(Rc::new(config));
+            let select_from = SelectFromCommnad::new(config);
             let key = sub_m.value_of("key").unwrap();
             let value = sub_m.value_of("value").unwrap();
 

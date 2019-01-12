@@ -1,12 +1,14 @@
 use std::fs::{self, File};
+use std::rc::Rc;
+
 use config::Config;
 
 pub struct InitCommand {
-    config: Config,
+    config: Rc<Config>,
 }
 
 impl InitCommand {
-    pub fn new(config: Config) -> InitCommand {
+    pub fn new(config: Rc<Config>) -> InitCommand {
         InitCommand { config: config }
     }
 
