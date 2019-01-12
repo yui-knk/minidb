@@ -1,6 +1,7 @@
 use std::io::{self, BufReader, BufRead, BufWriter, Write};
 use std::fs::File;
 use std::path::{Path};
+
 use config::Config;
 
 pub trait Record {

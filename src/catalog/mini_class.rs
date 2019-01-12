@@ -2,7 +2,9 @@
 // similar to a table. For example "table".
 
 use std::io::{self, Error, ErrorKind, Write};
-use catalog::catalog::Record;
+
+use config::Config;
+use catalog::catalog::{Record, RecordManeger};
 
 #[derive(Debug)]
 pub struct MiniClassRecord {
@@ -39,6 +41,13 @@ impl MiniClassRecord {
         MiniClassRecord { name: name, dbname: dbname }
     }
 }
+
+impl RecordManeger<MiniClassRecord> {
+    pub fn mini_class_rm(config: &Config) -> RecordManeger<MiniClassRecord> {
+        RecordManeger::build_from_config("mini_class".to_string(), config).unwrap()
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

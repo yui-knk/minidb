@@ -2,6 +2,7 @@
 
 use std::io::{self, Error, ErrorKind, Write};
 
+use config::Config;
 use catalog::catalog::{Record, RecordManeger};
 
 #[derive(Debug)]
@@ -88,6 +89,10 @@ impl MiniAttributeRecord {
 
 // TODO: Define `Vec<&MiniAttributeRecord>` as struct.
 impl RecordManeger<MiniAttributeRecord> {
+    pub fn mini_attribute_rm(config: &Config) -> RecordManeger<MiniAttributeRecord> {
+        RecordManeger::build_from_config("mini_attribute".to_string(), config).unwrap()
+    }
+
     pub fn attributes(&self, dbname: &str, table_name: &str) -> Vec<&MiniAttributeRecord> {
         self.records
             .iter()

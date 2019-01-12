@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use std::collections::HashMap;
 use std::fs::File;
 
@@ -30,15 +31,15 @@ struct BufferDesc {
     valid: bool,
 }
 
-pub struct BufferManager<'a> {
-    config: &'a Config,
+pub struct BufferManager {
+    config: Rc<Config>,
     buffer_descriptors: Vec<BufferDesc>,
     pages: Vec<Page>,
     // Hash from BufferTag to index of descriptor and page
     buffer_hash: HashMap<BufferTag, Buffer>,
 }
 
-impl<'a> Drop for BufferManager<'a> {
+impl Drop for BufferManager {
     fn drop(&mut self) {
         let len = self.buffer_descriptors.len();
 
@@ -54,8 +55,8 @@ impl<'a> Drop for BufferManager<'a> {
     }
 }
 
-impl<'a> BufferManager<'a> {
-    pub fn new(size: usize, config: &'a Config) -> BufferManager<'a> {
+impl BufferManager {
+    pub fn new(size: usize, config: Rc<Config>) -> BufferManager {
         BufferManager {
             config: config,
             buffer_descriptors: Vec::with_capacity(N_BUFFERS),

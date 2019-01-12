@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use ty;
 use config::{Config};
 use catalog::catalog::RecordManeger;
@@ -5,12 +7,12 @@ use catalog::mini_attribute::MiniAttributeRecord;
 use tuple::{TupleTableSlot};
 use buffer_manager::{RelFileNode, BufferManager};
 
-pub struct InsertIntoCommnad<'a> {
-    config: &'a Config,
+pub struct InsertIntoCommnad {
+    config: Rc<Config>,
 }
 
-pub struct SelectFromCommnad<'a> {
-    config: &'a Config,
+pub struct SelectFromCommnad {
+    config: Rc<Config>,
 }
 
 pub struct KeyValue {
@@ -39,19 +41,19 @@ impl KeyValueBuilder {
     }
 }
 
-impl<'a> InsertIntoCommnad<'a> {
-    pub fn new(config: &'a Config) -> InsertIntoCommnad<'a> {
+impl InsertIntoCommnad {
+    pub fn new(config: Rc<Config>) -> InsertIntoCommnad {
         InsertIntoCommnad {
             config: config,
         }
     }
 
     pub fn execute(&self, dbname: &str, table_name: &str, key_values: Vec<KeyValue>) -> Result<(), String> {
-        let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::build_from_config("mini_attribute".to_string(), self.config).unwrap();
+        let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
         let attrs = rm.attributes(dbname, table_name);
         let mut slot = TupleTableSlot::new(rm.attributes_clone(dbname, table_name));
 
-        let mut bm = BufferManager::new(1, self.config);
+        let mut bm = BufferManager::new(1, self.config.clone());
         let file_node = RelFileNode {
             table_name: table_name.to_string(),
             dbname: dbname.to_string(),
@@ -78,20 +80,20 @@ impl<'a> InsertIntoCommnad<'a> {
     }
 }
 
-impl<'a> SelectFromCommnad<'a> {
-    pub fn new(config: &'a Config) -> SelectFromCommnad<'a> {
+impl SelectFromCommnad {
+    pub fn new(config: Rc<Config>) -> SelectFromCommnad {
         SelectFromCommnad {
             config: config,
         }
     }
 
     pub fn execute(&self, dbname: &str, table_name: &str, key: &str, value: &str) -> Result<(), String> {
-        let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::build_from_config("mini_attribute".to_string(), self.config).unwrap();
+        let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
         let attrs = rm.attributes_clone(dbname, table_name);
         let attrs_len = attrs.iter().fold(0, |acc, attr| acc + attr.len) as u32;
         let mut slot = TupleTableSlot::new(attrs);
 
-        let mut bm = BufferManager::new(1, self.config);
+        let mut bm = BufferManager::new(1, self.config.clone());
         let file_node = RelFileNode {
             table_name: table_name.to_string(),
             dbname: dbname.to_string(),

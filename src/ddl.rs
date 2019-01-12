@@ -1,5 +1,7 @@
 use std::fs;
 use std::io::{self, Error, ErrorKind};
+use std::rc::Rc;
+
 use config::Config;
 use catalog::catalog::RecordManeger;
 use catalog::mini_class::MiniClassRecord;
@@ -7,15 +9,15 @@ use catalog::mini_database::MiniDatabaseRecord;
 use catalog::mini_attribute::MiniAttributeRecord;
 
 pub struct CreateDatabaseCommand {
-    config: Config,
+    config: Rc<Config>,
 }
 
 pub struct CreateTableCommand {
-    config: Config,
+    config: Rc<Config>,
 }
 
 impl CreateDatabaseCommand {
-    pub fn new(config: Config) -> CreateDatabaseCommand {
+    pub fn new(config: Rc<Config>) -> CreateDatabaseCommand {
         CreateDatabaseCommand { config: config }
     }
 
@@ -42,7 +44,7 @@ impl CreateDatabaseCommand {
     }
 
     fn add_record(&self, dbname: &str) {
-        let mut db: RecordManeger<MiniDatabaseRecord> = RecordManeger::build_from_config("mini_database".to_string(), &self.config).unwrap();
+        let mut db: RecordManeger<MiniDatabaseRecord> = RecordManeger::mini_database_rm(&self.config);
         let record = MiniDatabaseRecord::new(dbname.to_string());
         db.add_record(record);
         db.save(&self.config);
@@ -50,7 +52,7 @@ impl CreateDatabaseCommand {
 }
 
 impl CreateTableCommand {
-    pub fn new(config: Config) -> CreateTableCommand {
+    pub fn new(config: Rc<Config>) -> CreateTableCommand {
         CreateTableCommand { config: config }
     }
 
@@ -79,14 +81,14 @@ impl CreateTableCommand {
     }
 
     fn add_record_to_mini_class(&self, dbname: &str, tablename: &str) {
-        let mut db: RecordManeger<MiniClassRecord> = RecordManeger::build_from_config("mini_class".to_string(), &self.config).unwrap();
+        let mut db: RecordManeger<MiniClassRecord> = RecordManeger::mini_class_rm(&self.config);
         let record = MiniClassRecord::new(tablename.to_string(), dbname.to_string());
         db.add_record(record);
         db.save(&self.config);
     }
 
     fn add_record_to_mini_attribute(&self, name: &str, dbname: &str, tablename: &str, type_name: &str, len: usize) {
-        let mut db: RecordManeger<MiniAttributeRecord> = RecordManeger::build_from_config("mini_attribute".to_string(), &self.config).unwrap();
+        let mut db: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
         let record = MiniAttributeRecord::new(
             name.to_string(),
             dbname.to_string(),

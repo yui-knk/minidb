@@ -1,5 +1,7 @@
 use std::io::{self, Write};
-use catalog::catalog::Record;
+
+use config::Config;
+use catalog::catalog::{Record, RecordManeger};
 
 #[derive(Debug)]
 pub struct MiniDatabaseRecord {
@@ -21,6 +23,12 @@ impl Record for MiniDatabaseRecord {
 impl MiniDatabaseRecord {
     pub fn new(name: String) -> MiniDatabaseRecord {
         MiniDatabaseRecord { name: name }
+    }
+}
+
+impl RecordManeger<MiniDatabaseRecord> {
+    pub fn mini_database_rm(config: &Config) -> RecordManeger<MiniDatabaseRecord> {
+        RecordManeger::build_from_config("mini_database".to_string(), config).unwrap()
     }
 }
 
