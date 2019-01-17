@@ -6,11 +6,18 @@ use page::{Page};
 use config::{Config, N_BUFFERS, DEFAULT_BLOCK_SIZE};
 
 // Buffer identifiers
-type Buffer = usize;
-// Block number of a data file (start with 0)
-type BlockNum = u32;
+// Zero is invalid, positive is the index of a shared buffer (1..NBuffers),
+// negative is the index of a local buffer (-1 .. -NLocBuffer).
+#[derive(Debug, Clone, Copy)]
+pub enum Buffer {
+    InvalidBuffer,
+    Buffer(usize)
+}
 
-#[derive(Hash, Eq, PartialEq, Debug)]
+// Block number of a data file (start with 0)
+pub type BlockNum = u32;
+
+#[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct RelFileNode {
     pub table_name: String,
     pub dbname: String,
@@ -76,7 +83,7 @@ impl BufferManager {
             Page::new(DEFAULT_BLOCK_SIZE)
         };
         // TODO: Check length
-        let buffer = self.pages.len();
+        let buffer = Buffer::Buffer(self.pages.len());
         let tag = BufferTag {
             rnode: file_node,
             block_num: block_num,
@@ -95,11 +102,17 @@ impl BufferManager {
     }
 
     pub fn get_page(&self, buffer_id: Buffer) -> &Page {
-        &self.pages[buffer_id]
+        match buffer_id {
+            Buffer::Buffer(buf) => &self.pages[buf],
+            Buffer::InvalidBuffer => panic!("InvalidBuffer")
+        }
     }
 
     pub fn get_page_mut(&mut self, buffer_id: Buffer) -> &mut Page {
-        &mut self.pages[buffer_id]
+        match buffer_id {
+            Buffer::Buffer(buf) => &mut self.pages[buf],
+            Buffer::InvalidBuffer => panic!("InvalidBuffer")
+        }
     }
     // 
     // pub fn read_buffer_extended(&mut self, block_num: BlockNum) -> Buffer {

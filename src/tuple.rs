@@ -1,5 +1,17 @@
 use catalog::mini_attribute::MiniAttributeRecord;
+use off::{OffsetNumber, FirstOffsetNumber};
 use ty::{Ty, load_ty};
+use page::{ItemIdData};
+
+// Form itemptr.h in pg.
+#[derive(Debug, Clone)]
+pub struct ItemPointerData
+{
+    // Memo: BlockIdData in pg.
+    pub ip_blkid: ItemIdData,
+    pub ip_posid: OffsetNumber,
+}
+
 
 // Tuple means row of a table.
 pub struct TupleTableSlot {
@@ -13,13 +25,17 @@ struct TupleDesc {
 }
 
 // This manages tuple data.
-struct HeapTupleData {
+#[derive(Debug)]
+pub struct HeapTupleData {
     t_len: u32,
+    // SelfItemPointer
+    pub t_self: ItemPointerData,
     t_data: Box<HeapTupleHeaderData>,
 }
 
 // The contents of this struct are directly read from/write to
 // a tuple of pages.
+#[derive(Debug)]
 struct HeapTupleHeaderData {
     data: *mut u8,
 }
@@ -36,8 +52,12 @@ impl TupleTableSlot {
         }
     }
 
-    pub fn load_data(&mut self, src: *const libc::c_void, n: u32) {
-        self.heap_tuple.load(src, n);
+    pub fn load_data(&mut self, src: *const libc::c_void, n: u32, t_self: ItemPointerData) {
+        self.heap_tuple.load(src, n, t_self);
+    }
+
+    pub fn load_data_without_len(&mut self, src: *const libc::c_void, t_self: ItemPointerData) {
+        self.heap_tuple.load_without_len(src, t_self);
     }
 
     pub fn attrs_count(&self) -> usize {
@@ -69,7 +89,7 @@ impl TupleTableSlot {
     }
 
     pub fn data_ptr(&self) -> *const libc::c_void {
-        self.heap_tuple.t_data.data as *const libc::c_void
+        self.heap_tuple.data_ptr()
     }
 
     fn check_index(&self, index: usize) {
@@ -106,21 +126,36 @@ impl TupleDesc {
 }
 
 impl HeapTupleData {
-    fn new(len: u32) -> HeapTupleData {
+    pub fn new(len: u32) -> HeapTupleData {
         let data = Box::new(HeapTupleHeaderData::new(len));
 
         HeapTupleData {
             t_len: len,
+            t_self: ItemPointerData::new(),
             t_data: data,
         }
     }
 
-    fn load(&mut self, src: *const libc::c_void, n: u32) {
+    fn load(&mut self, src: *const libc::c_void, n: u32, t_self: ItemPointerData) {
         if self.t_len < n {
             panic!("Try to load over size data. t_len: {}, n: {}.", self.t_len, n);
         }
 
+        self.t_self = t_self;
         self.t_data.load(src, n);
+    }
+
+    pub fn load_without_len(&mut self, src: *const libc::c_void, t_self: ItemPointerData) {
+        self.t_self = t_self;
+        self.t_data.load(src, self.t_len);
+    }
+
+    pub fn get_item_offset_number(&self) -> OffsetNumber {
+        self.t_self.ip_posid
+    }
+
+    pub fn data_ptr(&self) -> *const libc::c_void {
+        self.t_data.data as *const libc::c_void
     }
 }
 
@@ -159,6 +194,18 @@ impl Drop for HeapTupleHeaderData {
             }
 
             libc::free(self.data as *mut libc::c_void);
+        }
+    }
+}
+
+impl ItemPointerData {
+    pub fn new() -> ItemPointerData {
+        let ip_blkid = ItemIdData::new(0);
+        let ip_posid = FirstOffsetNumber;
+
+        ItemPointerData {
+            ip_blkid: ip_blkid,
+            ip_posid: ip_posid,
         }
     }
 }

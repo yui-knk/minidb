@@ -6,6 +6,7 @@ use catalog::catalog::RecordManeger;
 use catalog::mini_attribute::MiniAttributeRecord;
 use tuple::{TupleTableSlot};
 use buffer_manager::{RelFileNode, BufferManager};
+use node_seqscan::{ScanState};
 
 pub struct InsertIntoCommnad {
     config: Rc<Config>,
@@ -89,27 +90,13 @@ impl SelectFromCommnad {
 
     pub fn execute(&self, dbname: &str, table_name: &str, key: &str, value: &str) -> Result<(), String> {
         let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
-        let attrs = rm.attributes_clone(dbname, table_name);
-        let attrs_len = attrs.iter().fold(0, |acc, attr| acc + attr.len) as u32;
-        let mut slot = TupleTableSlot::new(attrs);
-
-        let mut bm = BufferManager::new(1, self.config.clone());
         let file_node = RelFileNode {
             table_name: table_name.to_string(),
             dbname: dbname.to_string(),
         };
-        let buf = bm.read_buffer(file_node, 0);
-        let page = bm.get_page(buf);
-
-        for i in 0..(page.entry_count()) {
-            slot.load_data(page.get_entry_pointer(i).unwrap(), attrs_len);
-            println!("attrs_count: {:?}", slot.attrs_count());
-
-            for j in 0..(slot.attrs_count()) {
-                let ty = slot.get_column(j);
-                println!("{:?}", ty.as_string());
-            }
-        }
+        let mut bm = BufferManager::new(1, self.config.clone());
+        let mut scan = ScanState::new(&file_node, &rm);
+        scan.exec_scan(&mut bm);
 
         Ok(())
     }

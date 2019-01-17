@@ -2,8 +2,10 @@ use std::mem;
 use std::fs::File;
 use std::path::{Path};
 use std::os::unix::io::{IntoRawFd, FromRawFd};
+
 use config::DEFAULT_BLOCK_SIZE;
 use tuple::{TupleTableSlot};
+use off::{OffsetNumber};
 
 type LocationIndex = u16;
 
@@ -33,6 +35,7 @@ pub struct Page {
 // (1) 15bit (lp_off) is offset to tuple (from start of page)
 // (2)  2bit (lp_flags) is state of item pointer, see below
 // (3) 15bit (lp_len) is byte length of tuple
+#[derive(Debug, Clone, Copy)]
 pub struct ItemIdData {
     data: u32
 }
@@ -191,6 +194,16 @@ impl Page {
         self.header().pd_lower as usize <= HEADER_BYTE_SIZE
     }
 
+    pub fn page_get_max_offset_number(&self) -> OffsetNumber {
+        let lower = self.header().pd_lower as usize;
+
+        if lower <= HEADER_BYTE_SIZE {
+            0
+        } else {
+            ((lower - HEADER_BYTE_SIZE) / ITEM_ID_DATA_BYTE_SIZE) as OffsetNumber
+        }
+    }
+
     pub fn add_entry(&mut self, src: *const libc::c_void, n: u16) -> Result<(), String> {
         if self.has_space(n) {
             self.mut_header().pd_upper -= n;
@@ -237,9 +250,15 @@ impl Page {
         );
     }
 
-    pub fn get_item(&self, index: u16) -> &ItemIdData {
+    pub fn get_item_ref(&self, index: u16) -> &ItemIdData {
         unsafe {
             &*((self.header as *const u8).add(HEADER_BYTE_SIZE + ITEM_ID_DATA_BYTE_SIZE * (index as usize)) as *const ItemIdData)
+        }
+    }
+
+    pub fn get_item(&self, index: u16) -> ItemIdData {
+        unsafe {
+            *((self.header as *const u8).add(HEADER_BYTE_SIZE + ITEM_ID_DATA_BYTE_SIZE * (index as usize)) as *const ItemIdData)
         }
     }
 
@@ -250,7 +269,7 @@ impl Page {
         }
 
         unsafe {
-            let item_p: *const ItemIdData = self.get_item(index);
+            let item_p: *const ItemIdData = self.get_item_ref(index);
             let off = (*item_p).lp_off();
             let p: *const libc::c_void = (self.header as *const u8).add(off as usize) as *const libc::c_void;
 
@@ -265,7 +284,7 @@ impl Page {
         }
 
         unsafe {
-            let item_p: *const ItemIdData = self.get_item(index);
+            let item_p: *const ItemIdData = self.get_item_ref(index);
             let off = (*item_p).lp_off();
             let len = (*item_p).lp_len();
             let mut v = Vec::with_capacity(len as usize / MEM_SIZE_OF_U8);
@@ -349,7 +368,7 @@ mod tests {
         assert_eq!(page.header().pd_upper, DEFAULT_BLOCK_SIZE - entry_size1);
         assert_eq!(page.is_empty(), false);
         assert_eq!(page.entry_count(), 1);
-        assert_eq!(page.get_item(0).lp_len(), 3);
+        assert_eq!(page.get_item_ref(0).lp_len(), 3);
         assert_eq!(page.get_entry(0).unwrap(), entry1);
 
         page.add_vec_entry(&entry2).unwrap();
@@ -357,7 +376,7 @@ mod tests {
         assert_eq!(page.header().pd_upper, DEFAULT_BLOCK_SIZE - entry_size1 - entry_size2);
         assert_eq!(page.is_empty(), false);
         assert_eq!(page.entry_count(), 2);
-        assert_eq!(page.get_item(1).lp_len(), 4);
+        assert_eq!(page.get_item_ref(1).lp_len(), 4);
         assert_eq!(page.get_entry(1).unwrap(), entry2);
     }
 
@@ -390,6 +409,6 @@ mod tests {
         assert_eq!(page.header().pd_upper, DEFAULT_BLOCK_SIZE - slot_data_size);
         assert_eq!(page.is_empty(), false);
         assert_eq!(page.entry_count(), 1);
-        assert_eq!(page.get_item(0).lp_len(), 4 * 2);
+        assert_eq!(page.get_item_ref(0).lp_len(), 4 * 2);
     }
 }
