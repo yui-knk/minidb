@@ -13,6 +13,8 @@ pub trait TypeValue {
     fn as_pointer(&self) -> *const libc::c_void;
 }
 
+// This function transforms data in database to TypeValue, so use methods of
+// byteorder crate.
 pub fn load_type_value(tl: &TypeLabel, src: *const libc::c_void) -> Box<TypeValue> {
     let len = ty_byte_len(tl);
 
@@ -26,6 +28,9 @@ pub fn load_type_value(tl: &TypeLabel, src: *const libc::c_void) -> Box<TypeValu
     }
 }
 
+// This function transforms input from user, mainly SQL, to
+// TypeValue, so use `parse` method. We can call `unwrap` because
+// `row` will be passed parser syntax check.
 pub fn build_type_value(tl: &TypeLabel, row: &str) -> Result<Box<TypeValue>, String> {
     match tl {
         TypeLabel::Integer => {
