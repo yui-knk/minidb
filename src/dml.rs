@@ -68,7 +68,7 @@ impl InsertIntoCommnad {
                 return Err(format!("Name not match. attrs: {}, key_values: {}", attr.name, kv.key));
             }
 
-            let t = ty::build_ty(&attr.type_name, &kv.value)?;
+            let t = ty::build_ty(&attr.ty, &kv.value)?;
             slot.set_column(i, t.as_ref());
         }
 

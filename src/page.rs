@@ -314,7 +314,7 @@ impl Drop for Page {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use catalog::mini_attribute::MiniAttributeRecord;
+    use catalog::mini_attribute::{MiniAttributeRecord, TypeLabel};
     use ty::Integer;
 
     #[test]
@@ -388,14 +388,14 @@ mod tests {
             "name".to_string(),
             "dbname".to_string(),
             "class_name".to_string(),
-            "integer".to_string(),
+            TypeLabel::Integer,
             4
         ));
         attrs.push(MiniAttributeRecord::new(
             "name".to_string(),
             "dbname".to_string(),
             "class_name".to_string(),
-            "integer".to_string(),
+            TypeLabel::Integer,
             4
         ));
         let mut slot = TupleTableSlot::new(attrs);

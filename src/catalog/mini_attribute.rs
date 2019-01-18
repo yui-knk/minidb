@@ -5,19 +5,32 @@ use std::io::{self, Error, ErrorKind, Write};
 use config::Config;
 use catalog::catalog::{Record, RecordManeger};
 
-#[derive(Debug)]
-enum Ty {
+#[derive(Debug, Clone, PartialEq)]
+pub enum TypeLabel {
     // Signed 4 bytes integer
     Integer,
 }
 
-fn ty_byte_len(ty: Ty) -> u16 {
+fn ty_to_u32(ty: &TypeLabel) -> u32 {
+    match ty {
+        Integer => 1,
+    }
+}
+
+fn u32_to_ty(i: u32) -> TypeLabel {
+    match i {
+        1 => Integer,
+        _ => panic!("Unknown type {}", i)
+    }
+}
+
+fn ty_byte_len(ty: &TypeLabel) -> u16 {
     match ty {
         Integer => 4,
     }
 }
 
-use self::Ty::*;
+use self::TypeLabel::*;
 
 #[derive(Debug, Clone)]
 pub struct MiniAttributeRecord {
@@ -27,7 +40,7 @@ pub struct MiniAttributeRecord {
     pub dbname: String,
     // name of class this attribute belongs to
     pub class_name: String,
-    pub type_name: String,
+    pub ty: TypeLabel,
     // Byte length of value
     pub len: usize,
 }
@@ -47,7 +60,7 @@ impl Record for MiniAttributeRecord {
             name: c[0].to_string(),
             dbname: c[1].to_string(),
             class_name: c[2].to_string(),
-            type_name: c[3].to_string(),
+            ty: u32_to_ty(c[3].to_string().parse::<u32>().unwrap()),
             len: c[4].to_string().parse::<usize>().unwrap(),
         };
         Ok(Box::new(r))
@@ -59,31 +72,24 @@ impl Record for MiniAttributeRecord {
             self.name,
             self.dbname,
             self.class_name,
-            self.type_name,
+            ty_to_u32(&self.ty),
             self.len).as_bytes())
     }
 }
 
 impl MiniAttributeRecord {
-    pub fn new(name: String, dbname: String, class_name: String, type_name: String, len: usize) -> MiniAttributeRecord {
+    pub fn new(name: String, dbname: String, class_name: String, ty: TypeLabel, len: usize) -> MiniAttributeRecord {
         MiniAttributeRecord {
             name: name,
             dbname: dbname,
             class_name: class_name,
-            type_name: type_name,
+            ty: ty,
             len: len
         }
     }
 
     fn byte_len(&self) -> u16 {
-        ty_byte_len(self.ty())
-    }
-
-    fn ty(&self) -> Ty {
-        match self.type_name.as_str() {
-            "integer" => Integer,
-            _ => panic!("Unknown type '{}'", self.type_name)
-        }
+        ty_byte_len(&self.ty)
     }
 }
 
@@ -117,13 +123,13 @@ mod tests {
 
     #[test]
     fn test_record_build_from_line() {
-        let result1 = MiniAttributeRecord::build_from_line("id,db2,table1,integer,4".to_string());
+        let result1 = MiniAttributeRecord::build_from_line("id,db2,table1,1,4".to_string());
         assert_eq!(result1.is_ok(), true);
         let ok1 = result1.ok().unwrap();
         assert_eq!(ok1.name, "id".to_string());
         assert_eq!(ok1.dbname, "db2".to_string());
         assert_eq!(ok1.class_name, "table1".to_string());
-        assert_eq!(ok1.type_name, "integer".to_string());
+        assert_eq!(ok1.ty, Integer);
         assert_eq!(ok1.len, 4);
 
         let result2 = MiniAttributeRecord::build_from_line("table1".to_string());
@@ -136,11 +142,11 @@ mod tests {
             name: "id".to_string(),
             dbname: "db2".to_string(),
             class_name: "table1".to_string(),
-            type_name: "integer".to_string(),
+            ty: Integer,
             len: 4,
         };
         let mut v = Vec::new();
         record.save_to_file(&mut v);
-        assert_eq!(v, b"id,db2,table1,integer,4");
+        assert_eq!(v, b"id,db2,table1,1,4");
     }
 }

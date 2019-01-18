@@ -1,6 +1,6 @@
 use catalog::mini_attribute::MiniAttributeRecord;
 use off::{OffsetNumber, FirstOffsetNumber};
-use ty::{Ty, load_ty};
+use ty::{TypeValue, load_ty};
 use page::{ItemIdData};
 
 // Form itemptr.h in pg.
@@ -69,15 +69,15 @@ impl TupleTableSlot {
     }
 
     // index is 0-origin.
-    pub fn get_column(&self, index: usize) -> Box<Ty> {
+    pub fn get_column(&self, index: usize) -> Box<TypeValue> {
         self.check_index(index);
 
         let attr = &self.tuple_desc.attrs[index];
         let ptr = self.attr_ptr(index) as *const libc::c_void;
-        load_ty(attr.type_name.as_str(), ptr, 4).unwrap()
+        load_ty(&attr.ty, ptr).unwrap()
     }
 
-    pub fn set_column(&mut self, index: usize, ty: &Ty) {
+    pub fn set_column(&mut self, index: usize, ty: &TypeValue) {
         // TODO: we should also check type of passed `ty` matches with
         //       the type of `attr`.
         self.check_index(index);
@@ -213,6 +213,7 @@ impl ItemPointerData {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use catalog::mini_attribute::TypeLabel;
     use ty::Integer;
 
     #[test]
@@ -222,14 +223,14 @@ mod tests {
             "name".to_string(),
             "dbname".to_string(),
             "class_name".to_string(),
-            "integer".to_string(),
+            TypeLabel::Integer,
             4
         ));
         attrs.push(MiniAttributeRecord::new(
             "name".to_string(),
             "dbname".to_string(),
             "class_name".to_string(),
-            "integer".to_string(),
+            TypeLabel::Integer,
             4
         ));
         let slot = TupleTableSlot::new(attrs);
@@ -248,14 +249,14 @@ mod tests {
             "name".to_string(),
             "dbname".to_string(),
             "class_name".to_string(),
-            "integer".to_string(),
+            TypeLabel::Integer,
             4
         ));
         attrs.push(MiniAttributeRecord::new(
             "name".to_string(),
             "dbname".to_string(),
             "class_name".to_string(),
-            "integer".to_string(),
+            TypeLabel::Integer,
             4
         ));
         let mut slot = TupleTableSlot::new(attrs);
