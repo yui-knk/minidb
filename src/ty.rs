@@ -1,9 +1,10 @@
 // Column type
 
+use std::slice;
 use std::io::{Write};
-use byteorder::{LittleEndian, WriteBytesExt};
+use byteorder::{WriteBytesExt, ReadBytesExt};
 
-use catalog::mini_attribute::TypeLabel;
+use catalog::mini_attribute::{TypeLabel, ty_byte_len};
 
 pub trait TypeValue {
     fn write_bytes(&self, wrt: &mut Write) -> std::io::Result<()>;
@@ -12,15 +13,15 @@ pub trait TypeValue {
     fn as_pointer(&self) -> *const libc::c_void;
 }
 
-pub fn load_type_value(tl: &TypeLabel, src: *const libc::c_void) -> Result<Box<TypeValue>, String> {
+pub fn load_type_value(tl: &TypeLabel, src: *const libc::c_void) -> Box<TypeValue> {
+    let len = ty_byte_len(tl);
+
     match tl {
         TypeLabel::Integer => {
-            unsafe {
-                let mut i = Integer { elem: 0 };
-                let elem_p: *mut i32 = &mut i.elem;
-                *elem_p = *(src as *const i32);
-                Ok(Box::new(i))
-            }
+            let ptr: *const u8 = src as *const u8;
+            let mut s = unsafe { slice::from_raw_parts(ptr, len as usize) };
+            let i = s.read_i32::<byteorder::LittleEndian>().unwrap();
+            Box::new(Integer { elem: i })
         }
     }
 }
@@ -41,7 +42,7 @@ pub struct Integer {
 
 impl TypeValue for Integer {
     fn write_bytes(&self, wrt: &mut Write) -> std::io::Result<()> {
-        wrt.write_i32::<LittleEndian>(self.elem)
+        wrt.write_i32::<byteorder::LittleEndian>(self.elem)
     }
 
     fn len(&self) -> u32 {

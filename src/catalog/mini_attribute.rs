@@ -24,7 +24,7 @@ fn u32_to_ty(i: u32) -> TypeLabel {
     }
 }
 
-fn ty_byte_len(ty: &TypeLabel) -> u16 {
+pub fn ty_byte_len(ty: &TypeLabel) -> u16 {
     match ty {
         Integer => 4,
     }

@@ -74,7 +74,7 @@ impl TupleTableSlot {
 
         let attr = &self.tuple_desc.attrs[index];
         let ptr = self.attr_ptr(index) as *const libc::c_void;
-        load_type_value(&attr.ty, ptr).unwrap()
+        load_type_value(&attr.ty, ptr)
     }
 
     pub fn set_column(&mut self, index: usize, ty: &TypeValue) {
