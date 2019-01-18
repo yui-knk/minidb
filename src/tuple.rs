@@ -1,6 +1,6 @@
 use catalog::mini_attribute::MiniAttributeRecord;
 use off::{OffsetNumber, FirstOffsetNumber};
-use ty::{TypeValue, load_ty};
+use ty::{TypeValue, load_type_value};
 use page::{ItemIdData};
 
 // Form itemptr.h in pg.
@@ -74,7 +74,7 @@ impl TupleTableSlot {
 
         let attr = &self.tuple_desc.attrs[index];
         let ptr = self.attr_ptr(index) as *const libc::c_void;
-        load_ty(&attr.ty, ptr).unwrap()
+        load_type_value(&attr.ty, ptr).unwrap()
     }
 
     pub fn set_column(&mut self, index: usize, ty: &TypeValue) {

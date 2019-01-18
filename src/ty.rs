@@ -12,7 +12,7 @@ pub trait TypeValue {
     fn as_pointer(&self) -> *const libc::c_void;
 }
 
-pub fn load_ty(tl: &TypeLabel, src: *const libc::c_void) -> Result<Box<TypeValue>, String> {
+pub fn load_type_value(tl: &TypeLabel, src: *const libc::c_void) -> Result<Box<TypeValue>, String> {
     match tl {
         TypeLabel::Integer => {
             unsafe {
@@ -25,7 +25,7 @@ pub fn load_ty(tl: &TypeLabel, src: *const libc::c_void) -> Result<Box<TypeValue
     }
 }
 
-pub fn build_ty(tl: &TypeLabel, row: &str) -> Result<Box<TypeValue>, String> {
+pub fn build_type_value(tl: &TypeLabel, row: &str) -> Result<Box<TypeValue>, String> {
     match tl {
         TypeLabel::Integer => {
             let elem = row.parse::<i32>().unwrap();
