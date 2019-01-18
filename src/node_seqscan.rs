@@ -72,6 +72,7 @@ impl<'a> ScanState<'a> {
         }
     }
 
+    // ExecScan in pg.
     pub fn exec_scan(&mut self, bufmrg: &mut BufferManager) {
         loop {
             let opt = self.seq_next(bufmrg);
@@ -149,4 +150,3 @@ impl<'a> ScanState<'a> {
         }
     }
 }
-
