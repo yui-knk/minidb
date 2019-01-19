@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use catalog::catalog::RecordManeger;
 use catalog::mini_attribute::MiniAttributeRecord;
 use buffer_manager::{Buffer, BlockNum, RelFileNode, BufferManager};

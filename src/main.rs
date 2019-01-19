@@ -4,6 +4,8 @@ extern crate clap;
 use std::rc::Rc;
 
 use clap::{Arg, App, SubCommand};
+
+use minidb::oid_manager::OidManager;
 use minidb::config::{Config};
 use minidb::ddl::{CreateDatabaseCommand, CreateTableCommand};
 use minidb::dml::{InsertIntoCommnad, SelectFromCommnad, KeyValueBuilder};
@@ -63,10 +65,11 @@ fn main() {
 
     let base_dir = matches.value_of("base_dir").unwrap();
     let config = Rc::new(Config::new(base_dir.to_string()));
+    let _oid_manager = OidManager::new(config.clone());
 
     match matches.subcommand() {
         ("init", Some(_)) => {
-            let init = InitCommand::new(config);
+            let init = InitCommand::new(config.clone());
             
             match init.execute() {
                 Ok(_) => {},
@@ -78,7 +81,7 @@ fn main() {
         },
         ("create_db", Some(sub_m)) => {
             let dbname = sub_m.value_of("dbname").unwrap();
-            let create_db = CreateDatabaseCommand::new(config);
+            let create_db = CreateDatabaseCommand::new(config.clone());
 
             match create_db.execute(dbname) {
                 Ok(_) => {},
@@ -91,7 +94,7 @@ fn main() {
         ("create_table", Some(sub_m)) => {
             let dbname = sub_m.value_of("dbname").unwrap();
             let tablename = sub_m.value_of("tablename").unwrap();
-            let create_table = CreateTableCommand::new(config);
+            let create_table = CreateTableCommand::new(config.clone());
 
             match create_table.execute(dbname, tablename) {
                 Ok(_) => {},
@@ -122,7 +125,7 @@ fn main() {
         ("select_from", Some(sub_m)) => {
             let dbname = sub_m.value_of("dbname").unwrap();
             let tablename = sub_m.value_of("tablename").unwrap();
-            let select_from = SelectFromCommnad::new(config);
+            let select_from = SelectFromCommnad::new(config.clone());
             let key = sub_m.value_of("key").unwrap();
             let value = sub_m.value_of("value").unwrap();
 

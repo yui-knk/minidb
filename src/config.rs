@@ -38,6 +38,10 @@ impl Config {
         self.root_dir_path().join("global")
     }
 
+    pub fn oid_file_path(&self) -> PathBuf {
+        self.global_dir_path().join("oid")
+    }
+
     pub fn system_catalog_dir_path<P: AsRef<Path>>(&self, tablename: P) -> PathBuf {
         self.global_dir_path().join(tablename)
     }
@@ -82,6 +86,13 @@ mod tests {
         let config = Config::new("/mydb".to_string());
 
         assert_eq!(config.global_dir_path(), PathBuf::from("/mydb/global"));
+    }
+
+    #[test]
+    fn test_oid_file_path() {
+        let config = Config::new("/mydb".to_string());
+
+        assert_eq!(config.oid_file_path(), PathBuf::from("/mydb/global/oid"));
     }
 
     #[test]

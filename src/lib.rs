@@ -12,6 +12,7 @@ pub mod catalog {
 }
 
 pub mod buffer_manager;
+pub mod oid_manager;
 pub mod ty;
 pub mod ddl;
 pub mod dml;
