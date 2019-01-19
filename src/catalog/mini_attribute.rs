@@ -73,7 +73,8 @@ impl Record for MiniAttributeRecord {
             self.dbname,
             self.class_name,
             ty_to_u32(&self.ty),
-            self.len).as_bytes())
+            self.len
+        ).as_bytes())
     }
 }
 

@@ -45,7 +45,7 @@ impl OidManager {
         }
     }
 
-    pub fn getNewOid(&mut self) -> Oid {
+    pub fn get_new_oid(&mut self) -> Oid {
         let result = self.current_oid;
         self.current_oid = self.current_oid + 1;
         result

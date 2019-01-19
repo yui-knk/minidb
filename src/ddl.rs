@@ -1,15 +1,18 @@
 use std::fs;
 use std::io::{self, Error, ErrorKind};
 use std::rc::Rc;
+use std::sync::RwLock;
 
 use config::Config;
 use catalog::catalog::RecordManeger;
 use catalog::mini_class::MiniClassRecord;
 use catalog::mini_database::MiniDatabaseRecord;
 use catalog::mini_attribute::{MiniAttributeRecord, TypeLabel};
+use oid_manager::OidManager;
 
 pub struct CreateDatabaseCommand {
     config: Rc<Config>,
+    oid_manager: RwLock<OidManager>,
 }
 
 pub struct CreateTableCommand {
@@ -17,8 +20,11 @@ pub struct CreateTableCommand {
 }
 
 impl CreateDatabaseCommand {
-    pub fn new(config: Rc<Config>) -> CreateDatabaseCommand {
-        CreateDatabaseCommand { config: config }
+    pub fn new(config: Rc<Config>, oid_manager: RwLock<OidManager>) -> CreateDatabaseCommand {
+        CreateDatabaseCommand {
+            config: config,
+            oid_manager: oid_manager,
+        }
     }
 
     pub fn execute(&self, dbname: &str) -> io::Result<()> {
@@ -45,7 +51,8 @@ impl CreateDatabaseCommand {
 
     fn add_record(&self, dbname: &str) {
         let mut db: RecordManeger<MiniDatabaseRecord> = RecordManeger::mini_database_rm(&self.config);
-        let record = MiniDatabaseRecord::new(dbname.to_string());
+        let oid = self.oid_manager.write().unwrap().get_new_oid();
+        let record = MiniDatabaseRecord::new(oid, dbname.to_string());
         db.add_record(record);
         db.save(&self.config);
     }
