@@ -52,6 +52,10 @@ impl RecordManeger<MiniDatabaseRecord> {
     pub fn mini_database_rm(config: &Config) -> RecordManeger<MiniDatabaseRecord> {
         RecordManeger::build_from_config("mini_database".to_string(), config).unwrap()
     }
+
+    pub fn find_mini_database(&self, name: &str) -> Option<&MiniDatabaseRecord> {
+        self.records.iter().find(|e| e.name == name).map(|b| b.as_ref())
+    }
 }
 
 #[cfg(test)]
@@ -66,8 +70,8 @@ mod tests {
         assert_eq!(ok1.oid, 10001);
         assert_eq!(ok1.name, "db1".to_string());
 
-        // let result2 = MiniDatabaseRecord::build_from_line("db1".to_string());
-        // assert_eq!(result2.is_err(), true);
+        let result2 = MiniDatabaseRecord::build_from_line("db1".to_string());
+        assert_eq!(result2.is_err(), true);
     }
 
     #[test]
