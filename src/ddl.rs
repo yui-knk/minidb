@@ -17,6 +17,7 @@ pub struct CreateDatabaseCommand {
 
 pub struct CreateTableCommand {
     config: Rc<Config>,
+    oid_manager: RwLock<OidManager>,
 }
 
 impl CreateDatabaseCommand {
@@ -59,8 +60,11 @@ impl CreateDatabaseCommand {
 }
 
 impl CreateTableCommand {
-    pub fn new(config: Rc<Config>) -> CreateTableCommand {
-        CreateTableCommand { config: config }
+    pub fn new(config: Rc<Config>, oid_manager: RwLock<OidManager>) -> CreateTableCommand {
+        CreateTableCommand {
+            config: config,
+            oid_manager: oid_manager,
+        }
     }
 
     pub fn execute(&self, dbname: &str, tablename: &str) -> io::Result<()> {
@@ -89,7 +93,8 @@ impl CreateTableCommand {
 
     fn add_record_to_mini_class(&self, dbname: &str, tablename: &str) {
         let mut db: RecordManeger<MiniClassRecord> = RecordManeger::mini_class_rm(&self.config);
-        let record = MiniClassRecord::new(tablename.to_string(), dbname.to_string());
+        let oid = self.oid_manager.write().unwrap().get_new_oid();
+        let record = MiniClassRecord::new(oid, tablename.to_string(), dbname.to_string());
         db.add_record(record);
         db.save(&self.config);
     }

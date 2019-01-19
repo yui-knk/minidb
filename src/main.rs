@@ -66,7 +66,6 @@ fn main() {
 
     let base_dir = matches.value_of("base_dir").unwrap();
     let config = Rc::new(Config::new(base_dir.to_string()));
-    let oid_manager = RwLock::new(OidManager::new(config.clone()));
 
     match matches.subcommand() {
         ("init", Some(_)) => {
@@ -81,6 +80,7 @@ fn main() {
             }
         },
         ("create_db", Some(sub_m)) => {
+            let oid_manager = RwLock::new(OidManager::new(config.clone()));
             let dbname = sub_m.value_of("dbname").unwrap();
             let create_db = CreateDatabaseCommand::new(config.clone(), oid_manager);
 
@@ -93,9 +93,10 @@ fn main() {
             }
         },
         ("create_table", Some(sub_m)) => {
+            let oid_manager = RwLock::new(OidManager::new(config.clone()));
             let dbname = sub_m.value_of("dbname").unwrap();
             let tablename = sub_m.value_of("tablename").unwrap();
-            let create_table = CreateTableCommand::new(config.clone());
+            let create_table = CreateTableCommand::new(config.clone(), oid_manager);
 
             match create_table.execute(dbname, tablename) {
                 Ok(_) => {},
