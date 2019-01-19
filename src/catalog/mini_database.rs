@@ -53,7 +53,11 @@ impl RecordManeger<MiniDatabaseRecord> {
         RecordManeger::build_from_config("mini_database".to_string(), config).unwrap()
     }
 
-    pub fn find_mini_database(&self, name: &str) -> Option<&MiniDatabaseRecord> {
+    pub fn find_mini_database_oid(&self, name: &str) -> Option<Oid> {
+        self.find_mini_database(name).map(|d| d.oid)
+    }
+
+    fn find_mini_database(&self, name: &str) -> Option<&MiniDatabaseRecord> {
         self.records.iter().find(|e| e.name == name).map(|b| b.as_ref())
     }
 }

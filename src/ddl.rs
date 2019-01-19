@@ -69,7 +69,8 @@ impl CreateTableCommand {
 
     pub fn execute(&self, dbname: &str, tablename: &str) -> io::Result<()> {
         let db: RecordManeger<MiniDatabaseRecord> = RecordManeger::mini_database_rm(&self.config);
-        let db_oid = db.find_mini_database(dbname).expect(&format!("{} database should be defined.", dbname)).oid;
+        let db_oid = db.find_mini_database_oid(dbname)
+                       .expect(&format!("{} database should be defined.", dbname));
         let table_oid = self.oid_manager.write().unwrap().get_new_oid();
 
         self.check_base_dir()?;

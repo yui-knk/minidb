@@ -54,7 +54,8 @@ impl InsertIntoCommnad {
 
     pub fn execute(&self, dbname: &str, table_name: &str, key_values: Vec<KeyValue>) -> Result<(), String> {
         let db: RecordManeger<MiniDatabaseRecord> = RecordManeger::mini_database_rm(&self.config);
-        let db_oid = db.find_mini_database(dbname).expect(&format!("{} database should be defined.", dbname)).oid;
+        let db_oid = db.find_mini_database_oid(dbname)
+                       .expect(&format!("{} database should be defined.", dbname));
         let table: RecordManeger<MiniClassRecord> = RecordManeger::mini_class_rm(&self.config);
         let table_oid = table.find_mini_class_oid(dbname, table_name)
                              .expect(&format!("{} table should be defined under the {} database. ", table_name, dbname));
@@ -95,7 +96,9 @@ impl SelectFromCommnad {
 
     pub fn execute(&self, dbname: &str, table_name: &str, key: &str, value: &str) -> Result<(), String> {
         let db: RecordManeger<MiniDatabaseRecord> = RecordManeger::mini_database_rm(&self.config);
-        let db_oid = db.find_mini_database(dbname).expect(&format!("{} database should be defined.", dbname)).oid;
+        let db_oid = db.find_mini_database_oid(dbname)
+                       .expect(&format!("{} database should be defined.", dbname));
+
         let table: RecordManeger<MiniClassRecord> = RecordManeger::mini_class_rm(&self.config);
         let table_oid = table.find_mini_class_oid(dbname, table_name)
                              .expect(&format!("{} table should be defined under the {} database. ", table_name, dbname));
