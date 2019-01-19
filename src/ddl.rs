@@ -75,7 +75,7 @@ impl CreateTableCommand {
 
         self.check_base_dir()?;
         self.create_table_dir(db_oid, table_oid)?;
-        self.add_record_to_mini_class(dbname, tablename, table_oid);
+        self.add_record_to_mini_class(db_oid, tablename, table_oid);
         self.add_record_to_mini_attribute("id", db_oid, table_oid, TypeLabel::Integer, 4);
         self.add_record_to_mini_attribute("age", db_oid, table_oid, TypeLabel::Integer, 4);
         Ok(())
@@ -96,9 +96,9 @@ impl CreateTableCommand {
         fs::create_dir(self.config.table_dir_path(db_oid, table_oid))
     }
 
-    fn add_record_to_mini_class(&self, dbname: &str, tablename: &str, oid: Oid) {
+    fn add_record_to_mini_class(&self, db_oid: Oid, tablename: &str, oid: Oid) {
         let mut db: RecordManeger<MiniClassRecord> = RecordManeger::mini_class_rm(&self.config);
-        let record = MiniClassRecord::new(oid, tablename.to_string(), dbname.to_string());
+        let record = MiniClassRecord::new(oid, tablename.to_string(), db_oid);
         db.add_record(record);
         db.save(&self.config);
     }

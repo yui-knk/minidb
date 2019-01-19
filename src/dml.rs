@@ -57,7 +57,7 @@ impl InsertIntoCommnad {
         let db_oid = db.find_mini_database_oid(dbname)
                        .expect(&format!("{} database should be defined.", dbname));
         let table: RecordManeger<MiniClassRecord> = RecordManeger::mini_class_rm(&self.config);
-        let table_oid = table.find_mini_class_oid(dbname, table_name)
+        let table_oid = table.find_mini_class_oid(db_oid, table_name)
                              .expect(&format!("{} table should be defined under the {} database. ", table_name, dbname));
         let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
         let file_node = RelFileNode {
@@ -100,7 +100,7 @@ impl SelectFromCommnad {
                        .expect(&format!("{} database should be defined.", dbname));
 
         let table: RecordManeger<MiniClassRecord> = RecordManeger::mini_class_rm(&self.config);
-        let table_oid = table.find_mini_class_oid(dbname, table_name)
+        let table_oid = table.find_mini_class_oid(db_oid, table_name)
                              .expect(&format!("{} table should be defined under the {} database. ", table_name, dbname));
         let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
         let file_node = RelFileNode {
