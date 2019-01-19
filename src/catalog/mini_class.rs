@@ -60,7 +60,11 @@ impl RecordManeger<MiniClassRecord> {
         RecordManeger::build_from_config("mini_class".to_string(), config).unwrap()
     }
 
-    pub fn find_mini_class(&self, dbname: &str, name: &str) -> Option<&MiniClassRecord> {
+    pub fn find_mini_class_oid(&self, dbname: &str, name: &str) -> Option<Oid> {
+        self.find_mini_class(dbname, name).map(|c| c.oid)
+    }
+
+    fn find_mini_class(&self, dbname: &str, name: &str) -> Option<&MiniClassRecord> {
         self.records.iter().find(|e| e.name == name && e.dbname == dbname).map(|b| b.as_ref())
     }
 }

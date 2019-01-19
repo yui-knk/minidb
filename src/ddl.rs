@@ -8,7 +8,7 @@ use catalog::catalog::RecordManeger;
 use catalog::mini_class::MiniClassRecord;
 use catalog::mini_database::MiniDatabaseRecord;
 use catalog::mini_attribute::{MiniAttributeRecord, TypeLabel};
-use oid_manager::OidManager;
+use oid_manager::{OidManager, Oid};
 
 pub struct CreateDatabaseCommand {
     config: Rc<Config>,
@@ -29,9 +29,10 @@ impl CreateDatabaseCommand {
     }
 
     pub fn execute(&self, dbname: &str) -> io::Result<()> {
+        let oid = self.oid_manager.write().unwrap().get_new_oid();
         self.check_base_dir()?;
-        self.create_database_dir(dbname)?;
-        self.add_record(dbname);
+        self.create_database_dir(oid)?;
+        self.add_record(dbname, oid);
         Ok(())
     }
 
@@ -46,14 +47,13 @@ impl CreateDatabaseCommand {
         }
     }
 
-    fn create_database_dir(&self, dbname: &str) -> io::Result<()> {
-        fs::create_dir(self.config.database_dir_path(dbname))
+    fn create_database_dir(&self, db_oid: Oid) -> io::Result<()> {
+        fs::create_dir(self.config.database_dir_path(db_oid))
     }
 
-    fn add_record(&self, dbname: &str) {
+    fn add_record(&self, dbname: &str, db_oid: Oid) {
         let mut db: RecordManeger<MiniDatabaseRecord> = RecordManeger::mini_database_rm(&self.config);
-        let oid = self.oid_manager.write().unwrap().get_new_oid();
-        let record = MiniDatabaseRecord::new(oid, dbname.to_string());
+        let record = MiniDatabaseRecord::new(db_oid, dbname.to_string());
         db.add_record(record);
         db.save(&self.config);
     }
@@ -68,11 +68,15 @@ impl CreateTableCommand {
     }
 
     pub fn execute(&self, dbname: &str, tablename: &str) -> io::Result<()> {
+        let db: RecordManeger<MiniDatabaseRecord> = RecordManeger::mini_database_rm(&self.config);
+        let db_oid = db.find_mini_database(dbname).expect(&format!("{} database should be defined.", dbname)).oid;
+        let table_oid = self.oid_manager.write().unwrap().get_new_oid();
+
         self.check_base_dir()?;
-        self.create_table_dir(dbname, tablename)?;
-        self.add_record_to_mini_class(dbname, tablename);
-        self.add_record_to_mini_attribute("id", dbname, tablename, TypeLabel::Integer, 4);
-        self.add_record_to_mini_attribute("age", dbname, tablename, TypeLabel::Integer, 4);
+        self.create_table_dir(db_oid, table_oid)?;
+        self.add_record_to_mini_class(dbname, tablename, table_oid);
+        self.add_record_to_mini_attribute("id", db_oid, table_oid, TypeLabel::Integer, 4);
+        self.add_record_to_mini_attribute("age", db_oid, table_oid, TypeLabel::Integer, 4);
         Ok(())
     }
 
@@ -87,24 +91,23 @@ impl CreateTableCommand {
         }
     }
 
-    fn create_table_dir(&self, dbname: &str, tablename: &str) -> io::Result<()> {
-        fs::create_dir(self.config.table_dir_path(dbname, tablename))
+    fn create_table_dir(&self, db_oid: Oid, table_oid: Oid) -> io::Result<()> {
+        fs::create_dir(self.config.table_dir_path(db_oid, table_oid))
     }
 
-    fn add_record_to_mini_class(&self, dbname: &str, tablename: &str) {
+    fn add_record_to_mini_class(&self, dbname: &str, tablename: &str, oid: Oid) {
         let mut db: RecordManeger<MiniClassRecord> = RecordManeger::mini_class_rm(&self.config);
-        let oid = self.oid_manager.write().unwrap().get_new_oid();
         let record = MiniClassRecord::new(oid, tablename.to_string(), dbname.to_string());
         db.add_record(record);
         db.save(&self.config);
     }
 
-    fn add_record_to_mini_attribute(&self, name: &str, dbname: &str, tablename: &str, ty: TypeLabel, len: usize) {
+    fn add_record_to_mini_attribute(&self, name: &str, db_oid: Oid, table_oid: Oid, ty: TypeLabel, len: usize) {
         let mut db: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
         let record = MiniAttributeRecord::new(
             name.to_string(),
-            dbname.to_string(),
-            tablename.to_string(),
+            db_oid,
+            table_oid,
             ty,
             len,
         );

@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use oid_manager::{Oid, oid_to_string};
+
 pub struct Config {
     root_dir_name: String,
     block_size: u16,
@@ -23,7 +25,7 @@ impl Config {
     // * "data": table file
     //
     // [User defined tables]
-    // root directory / "base" / database name / table name /
+    // root directory / "base" / database oid / table oid /
     // Under the "table name"
     // * "data": table file
     pub fn root_dir_path(&self) -> PathBuf {
@@ -50,16 +52,28 @@ impl Config {
         self.system_catalog_dir_path(tablename).join("data")
     }
 
-    pub fn database_dir_path<P: AsRef<Path>>(&self, dbname: P) -> PathBuf {
+    pub fn database_dir_path(&self, db_oid: Oid) -> PathBuf {
+        self.base_dir_path().join(oid_to_string(db_oid))
+    }
+
+    pub fn table_dir_path(&self, db_oid: Oid, table_oid: Oid) -> PathBuf {
+        self.database_dir_path(db_oid).join(oid_to_string(table_oid))
+    }
+
+    pub fn data_file_path(&self, db_oid: Oid, table_oid: Oid) -> PathBuf {
+        self.table_dir_path(db_oid, table_oid).join("data")
+    }
+
+    fn database_dir_path_0<P: AsRef<Path>>(&self, dbname: P) -> PathBuf {
         self.base_dir_path().join(dbname)
     }
 
-    pub fn table_dir_path<P: AsRef<Path>>(&self, dbname: P, tablename: P) -> PathBuf {
-        self.database_dir_path(dbname).join(tablename)
+    fn table_dir_path_0<P: AsRef<Path>>(&self, dbname: P, tablename: P) -> PathBuf {
+        self.database_dir_path_0(dbname).join(tablename)
     }
 
-    pub fn data_file_path<P: AsRef<Path>>(&self, dbname: P, tablename: P) -> PathBuf {
-        self.table_dir_path(dbname, tablename).join("data")
+    fn data_file_path_0<P: AsRef<Path>>(&self, dbname: P, tablename: P) -> PathBuf {
+        self.table_dir_path_0(dbname, tablename).join("data")
     }
 }
 
@@ -113,19 +127,19 @@ mod tests {
     fn test_database_dir_path() {
         let config = Config::new("/mydb".to_string());
 
-        assert_eq!(config.database_dir_path("db1"), PathBuf::from("/mydb/base/db1"));
+        assert_eq!(config.database_dir_path(10001), PathBuf::from("/mydb/base/10001"));
     }
 
     #[test]
     fn test_table_dir_path() {
         let config = Config::new("/mydb".to_string());
 
-        assert_eq!(config.table_dir_path("db1", "table1"), PathBuf::from("/mydb/base/db1/table1"));
+        assert_eq!(config.table_dir_path(10001, 10002), PathBuf::from("/mydb/base/10001/10002"));
     }
     #[test]
     fn test_data_file_path() {
         let config = Config::new("/mydb".to_string());
 
-        assert_eq!(config.data_file_path("db1", "table1"), PathBuf::from("/mydb/base/db1/table1/data"));
+        assert_eq!(config.data_file_path(10001, 10002), PathBuf::from("/mydb/base/10001/10002/data"));
     }
 }

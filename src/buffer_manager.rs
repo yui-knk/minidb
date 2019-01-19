@@ -4,6 +4,7 @@ use std::fs::File;
 
 use page::{Page};
 use config::{Config, N_BUFFERS, DEFAULT_BLOCK_SIZE};
+use oid_manager::Oid;
 
 // Buffer identifiers
 // Zero is invalid, positive is the index of a shared buffer (1..NBuffers),
@@ -19,8 +20,8 @@ pub type BlockNum = u32;
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct RelFileNode {
-    pub table_name: String,
-    pub dbname: String,
+    pub table_oid: Oid,
+    pub db_oid: Oid,
 }
 
 // `typedef struct buftag {} BufferTag` in pg.
@@ -54,7 +55,7 @@ impl Drop for BufferManager {
             let page = &self.pages[i];
             let descriptor = &self.buffer_descriptors[i];
             let rnode = &descriptor.tag.rnode;
-            let path = self.config.data_file_path(&rnode.dbname, &rnode.table_name);
+            let path = self.config.data_file_path(rnode.db_oid, rnode.table_oid);
             // TODO: want to cache fd.
             let f = File::create(path).unwrap();
             page.write_bytes(f);
@@ -75,7 +76,7 @@ impl BufferManager {
     // `ReadBuffer` function in pg.
     // This should recieve Relation instead of RelFileNode.
     pub fn read_buffer(&mut self, file_node: RelFileNode, block_num: BlockNum) -> Buffer {
-        let path = self.config.data_file_path(&file_node.dbname, &file_node.table_name);
+        let path = self.config.data_file_path(file_node.db_oid, file_node.table_oid);
         let page = if path.exists() {
             // TODO: `block_num` will be used.
             Page::load(&path)

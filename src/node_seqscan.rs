@@ -48,7 +48,7 @@ struct HeapScanDescData<'a> {
 impl<'a> ScanState<'a> {
     // 
     pub fn new(rnode: &'a RelFileNode, rm: &'a RecordManeger<MiniAttributeRecord>) -> ScanState<'a> {
-        let attrs = rm.attributes_clone(&rnode.dbname, &rnode.table_name);
+        let attrs = rm.attributes_clone(rnode.db_oid, rnode.table_oid);
         let attrs_len = attrs.iter().fold(0, |acc, attr| acc + attr.len) as u32;
         let tuple = HeapTupleData::new(attrs_len);
 

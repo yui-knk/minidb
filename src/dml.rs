@@ -3,6 +3,8 @@ use std::rc::Rc;
 use ty;
 use config::{Config};
 use catalog::catalog::RecordManeger;
+use catalog::mini_database::MiniDatabaseRecord;
+use catalog::mini_class::MiniClassRecord;
 use catalog::mini_attribute::MiniAttributeRecord;
 use tuple::{TupleTableSlot};
 use buffer_manager::{RelFileNode, BufferManager};
@@ -51,14 +53,19 @@ impl InsertIntoCommnad {
     }
 
     pub fn execute(&self, dbname: &str, table_name: &str, key_values: Vec<KeyValue>) -> Result<(), String> {
+        let db: RecordManeger<MiniDatabaseRecord> = RecordManeger::mini_database_rm(&self.config);
+        let db_oid = db.find_mini_database(dbname).expect(&format!("{} database should be defined.", dbname)).oid;
+        let table: RecordManeger<MiniClassRecord> = RecordManeger::mini_class_rm(&self.config);
+        let table_oid = table.find_mini_class_oid(dbname, table_name)
+                             .expect(&format!("{} table should be defined under the {} database. ", table_name, dbname));
         let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
         let file_node = RelFileNode {
-            table_name: table_name.to_string(),
-            dbname: dbname.to_string(),
+            table_oid: table_oid,
+            db_oid: db_oid,
         };
         let mut bm = BufferManager::new(1, self.config.clone());
-        let mut slot = TupleTableSlot::new(rm.attributes_clone(dbname, table_name));
-        let attrs = rm.attributes(dbname, table_name);
+        let mut slot = TupleTableSlot::new(rm.attributes_clone(db_oid, table_oid));
+        let attrs = rm.attributes(db_oid, table_oid);
         if attrs.len() != key_values.len() {
             return Err(format!("Length not match. attrs: {}, key_values: {}", attrs.len(), key_values.len()));
         }
@@ -87,10 +94,15 @@ impl SelectFromCommnad {
     }
 
     pub fn execute(&self, dbname: &str, table_name: &str, key: &str, value: &str) -> Result<(), String> {
+        let db: RecordManeger<MiniDatabaseRecord> = RecordManeger::mini_database_rm(&self.config);
+        let db_oid = db.find_mini_database(dbname).expect(&format!("{} database should be defined.", dbname)).oid;
+        let table: RecordManeger<MiniClassRecord> = RecordManeger::mini_class_rm(&self.config);
+        let table_oid = table.find_mini_class_oid(dbname, table_name)
+                             .expect(&format!("{} table should be defined under the {} database. ", table_name, dbname));
         let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
         let file_node = RelFileNode {
-            table_name: table_name.to_string(),
-            dbname: dbname.to_string(),
+            table_oid: table_oid,
+            db_oid: db_oid,
         };
         let mut bm = BufferManager::new(1, self.config.clone());
         let mut scan = ScanState::new(&file_node, &rm);

@@ -15,12 +15,16 @@ pub const InitialOid: Oid = 10000;
 
 pub fn create_oid_file(config: &Config) -> std::io::Result<()> {
     let mut f = File::create(config.oid_file_path())?;
-    f.write(format!("{}", InitialOid).as_bytes()).map(|_| ())
+    f.write(oid_to_string(InitialOid).as_bytes()).map(|_| ())
 }
 
 pub struct OidManager {
     config: Rc<Config>,
     current_oid: Oid,
+}
+
+pub fn oid_to_string(oid: Oid) -> String {
+    format!("{}", oid)
 }
 
 impl Drop for OidManager {

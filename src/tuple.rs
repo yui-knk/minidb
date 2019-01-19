@@ -221,15 +221,15 @@ mod tests {
         let mut attrs = Vec::new();
         attrs.push(MiniAttributeRecord::new(
             "name".to_string(),
-            "dbname".to_string(),
-            "class_name".to_string(),
+            10001,
+            10002,
             TypeLabel::Integer,
             4
         ));
         attrs.push(MiniAttributeRecord::new(
             "name".to_string(),
-            "dbname".to_string(),
-            "class_name".to_string(),
+            10003,
+            10004,
             TypeLabel::Integer,
             4
         ));
@@ -247,15 +247,15 @@ mod tests {
         let mut attrs = Vec::new();
         attrs.push(MiniAttributeRecord::new(
             "name".to_string(),
-            "dbname".to_string(),
-            "class_name".to_string(),
+            20001,
+            20002,
             TypeLabel::Integer,
             4
         ));
         attrs.push(MiniAttributeRecord::new(
             "name".to_string(),
-            "dbname".to_string(),
-            "class_name".to_string(),
+            20003,
+            20004,
             TypeLabel::Integer,
             4
         ));

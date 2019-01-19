@@ -4,6 +4,7 @@ use std::io::{self, Error, ErrorKind, Write};
 
 use config::Config;
 use catalog::catalog::{Record, RecordManeger};
+use oid_manager::Oid;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeLabel {
@@ -36,10 +37,10 @@ use self::TypeLabel::*;
 pub struct MiniAttributeRecord {
     // name of attribute
     pub name: String,
-    // name of db this attribute belongs to
-    pub dbname: String,
-    // name of class this attribute belongs to
-    pub class_name: String,
+    // oid of db this attribute belongs to
+    pub db_oid: Oid,
+    // oid of class this attribute belongs to
+    pub class_oid: Oid,
     pub ty: TypeLabel,
     // Byte length of value
     pub len: usize,
@@ -58,8 +59,8 @@ impl Record for MiniAttributeRecord {
 
         let r = MiniAttributeRecord {
             name: c[0].to_string(),
-            dbname: c[1].to_string(),
-            class_name: c[2].to_string(),
+            db_oid: c[1].to_string().parse::<u32>().unwrap(),
+            class_oid: c[2].to_string().parse::<u32>().unwrap(),
             ty: u32_to_ty(c[3].to_string().parse::<u32>().unwrap()),
             len: c[4].to_string().parse::<usize>().unwrap(),
         };
@@ -70,8 +71,8 @@ impl Record for MiniAttributeRecord {
         w.write(format!(
             "{},{},{},{},{}",
             self.name,
-            self.dbname,
-            self.class_name,
+            self.db_oid,
+            self.class_oid,
             ty_to_u32(&self.ty),
             self.len
         ).as_bytes())
@@ -79,11 +80,11 @@ impl Record for MiniAttributeRecord {
 }
 
 impl MiniAttributeRecord {
-    pub fn new(name: String, dbname: String, class_name: String, ty: TypeLabel, len: usize) -> MiniAttributeRecord {
+    pub fn new(name: String, db_oid: Oid, class_oid: Oid, ty: TypeLabel, len: usize) -> MiniAttributeRecord {
         MiniAttributeRecord {
             name: name,
-            dbname: dbname,
-            class_name: class_name,
+            db_oid: db_oid,
+            class_oid: class_oid,
             ty: ty,
             len: len
         }
@@ -100,18 +101,18 @@ impl RecordManeger<MiniAttributeRecord> {
         RecordManeger::build_from_config("mini_attribute".to_string(), config).unwrap()
     }
 
-    pub fn attributes(&self, dbname: &str, table_name: &str) -> Vec<&MiniAttributeRecord> {
+    pub fn attributes(&self, db_oid: Oid, table_oid: Oid) -> Vec<&MiniAttributeRecord> {
         self.records
             .iter()
-            .filter(|e| e.dbname == dbname && e.class_name == table_name)
+            .filter(|e| e.db_oid == db_oid && e.class_oid == table_oid)
             .map(|e| e.as_ref())
             .collect()
     }
 
-    pub fn attributes_clone(&self, dbname: &str, table_name: &str) -> Vec<MiniAttributeRecord> {
+    pub fn attributes_clone(&self, db_oid: Oid, table_oid: Oid) -> Vec<MiniAttributeRecord> {
         self.records
             .iter()
-            .filter(|e| e.dbname == dbname && e.class_name == table_name)
+            .filter(|e| e.db_oid == db_oid && e.class_oid == table_oid)
             .map(|e| *e.clone())
             .collect()
     }
@@ -124,12 +125,12 @@ mod tests {
 
     #[test]
     fn test_record_build_from_line() {
-        let result1 = MiniAttributeRecord::build_from_line("id,db2,table1,1,4".to_string());
+        let result1 = MiniAttributeRecord::build_from_line("id,10001,10002,1,4".to_string());
         assert_eq!(result1.is_ok(), true);
         let ok1 = result1.ok().unwrap();
         assert_eq!(ok1.name, "id".to_string());
-        assert_eq!(ok1.dbname, "db2".to_string());
-        assert_eq!(ok1.class_name, "table1".to_string());
+        assert_eq!(ok1.db_oid, 10001);
+        assert_eq!(ok1.class_oid, 10002);
         assert_eq!(ok1.ty, Integer);
         assert_eq!(ok1.len, 4);
 
@@ -141,13 +142,13 @@ mod tests {
     fn test_record_save_to_file() {
         let record = MiniAttributeRecord {
             name: "id".to_string(),
-            dbname: "db2".to_string(),
-            class_name: "table1".to_string(),
+            db_oid: 10003,
+            class_oid: 10004,
             ty: Integer,
             len: 4,
         };
         let mut v = Vec::new();
         record.save_to_file(&mut v);
-        assert_eq!(v, b"id,db2,table1,1,4");
+        assert_eq!(v, b"id,10003,10004,1,4");
     }
 }
