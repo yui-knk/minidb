@@ -2,9 +2,14 @@ BASE_DIR=/tmp/minidb
 DBNAME=db1
 TABLENAME=table1
 
-.PHONY: setup init_db create_db create_table insert_into select_from
+.PHONY: setup test_run init_db create_db create_table insert_into select_from
 
-setup: init_db create_db create_table
+setup: clean init_db create_db create_table
+
+test_run: setup insert_into select_from
+
+clean:
+	rm -rf $(BASE_DIR)
 
 init_db:
 	cargo run -- --base_dir $(BASE_DIR) init
