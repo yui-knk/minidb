@@ -64,18 +64,14 @@ impl StorageManager {
         cache.entry(rd_node.clone()).or_insert_with(|| {
             // TODO: we should open a file in smgrcreate function (with mdcreate function).
             let path = config.data_file_path(rd_node.db_oid, rd_node.table_oid);
-            let f = if path.exists() {
-                File::open(&path).unwrap()
-            } else {
-                // TODO: Should we initalize file explicity?
-                // In pg mdopen function create a file only if bootstrap mode.
-                OpenOptions::new()
-                    .read(true)
-                    .write(true)
-                    .create(true)
-                    .open(&path)
-                    .unwrap()
-            };
+            // TODO: Should we initalize file explicity?
+            // In pg mdopen function create a file only if bootstrap mode.
+            let f = OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .create(true)
+                        .open(&path)
+                        .unwrap();
 
             SMgrRelationData {
                 file: f,
