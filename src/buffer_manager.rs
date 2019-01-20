@@ -1,7 +1,6 @@
 use std::rc::Rc;
 use std::collections::HashMap;
 use std::fs::File;
-use std::sync::RwLock;
 
 use page::{Page};
 use config::{Config, N_BUFFERS, DEFAULT_BLOCK_SIZE};
@@ -44,7 +43,7 @@ struct BufferDesc {
 
 pub struct BufferManager {
     config: Rc<Config>,
-    smgr: RwLock<StorageManager>,
+    smgr: StorageManager,
     buffer_descriptors: Vec<BufferDesc>,
     pages: Vec<Page>,
     // Hash from BufferTag to index of descriptor and page
@@ -68,7 +67,7 @@ impl Drop for BufferManager {
 }
 
 impl BufferManager {
-    pub fn new(size: usize, config: Rc<Config>, smgr: RwLock<StorageManager>) -> BufferManager {
+    pub fn new(size: usize, config: Rc<Config>, smgr: StorageManager) -> BufferManager {
         BufferManager {
             config: config,
             smgr: smgr,
@@ -82,8 +81,7 @@ impl BufferManager {
     // This should recieve Relation instead of RelFileNode.
     pub fn read_buffer(&mut self, file_node: RelFileNode, block_num: BlockNum) -> Buffer {
         let page = Page::new(DEFAULT_BLOCK_SIZE);
-        let mut smgr = self.smgr.write().unwrap();
-        let mut relation_data = smgr.smgropen(&file_node);
+        let mut relation_data = self.smgr.smgropen(&file_node);
         relation_data.write().unwrap().mdread(page.header_pointer());
         // TODO: Check length
         let buffer = Buffer::Buffer(self.pages.len());
