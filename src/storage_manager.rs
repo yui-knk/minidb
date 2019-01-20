@@ -1,5 +1,6 @@
 use std::rc::Rc;
 use std::collections::HashMap;
+use std::io::{Seek, SeekFrom};
 use std::fs::{File, OpenOptions};
 use std::os::unix::io::{AsRawFd};
 use std::cell::RefCell;
@@ -32,12 +33,20 @@ impl SMgrRelationData {
     pub fn mdread(&mut self, buffer: *mut libc::c_void) {
         let s = DEFAULT_BLOCK_SIZE;
         self.mdopen();
-        let fd = self.file.as_ref().unwrap().as_raw_fd();
+
+        let mut f = self.file.as_ref().unwrap();
+
+        let offset = 0;
+        if f.seek(SeekFrom::Start(offset)).unwrap() != offset {
+            panic!("Failed to seek file. '{}'", offset);
+        }
+
+        let fd = f.as_raw_fd();
 
         unsafe {
             set_errno(Errno(0));
 
-            let rbyte = libc::read(fd, buffer as *mut libc::c_void, s as usize);
+            let rbyte = libc::read(fd, buffer, s as usize);
 
             if rbyte == -1 {
                 panic!("Failed to read file. '{}'", errno());
@@ -47,6 +56,36 @@ impl SMgrRelationData {
                 panic!(
                     "Failed to read file. Expect to read {} bytes but read only {} bytes",
                     s, rbyte
+                );
+            }
+        }
+    }
+
+    pub fn mdwrite(&mut self, buffer: *const libc::c_void) {
+        let s = DEFAULT_BLOCK_SIZE;
+        self.mdopen();
+        let mut f = self.file.as_ref().unwrap();
+
+        let offset = 0;
+        if f.seek(SeekFrom::Start(offset)).unwrap() != offset {
+            panic!("Failed to seek file. '{}'", offset);
+        }
+
+        let fd = f.as_raw_fd();
+
+        unsafe {
+            set_errno(Errno(0));
+
+            let wbyte = libc::write(fd, buffer, s as usize);
+
+            if wbyte == -1 {
+                panic!("Failed to write file. '{}'", errno());
+            }
+
+            if wbyte != s as isize {
+                panic!(
+                    "failed to write file. Expect to write {} bytes but write only {} bytes",
+                    s, wbyte
                 );
             }
         }

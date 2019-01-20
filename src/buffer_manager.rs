@@ -58,10 +58,9 @@ impl Drop for BufferManager {
             let page = &self.pages[i];
             let descriptor = &self.buffer_descriptors[i];
             let rnode = &descriptor.tag.rnode;
-            let path = self.config.data_file_path(rnode.db_oid, rnode.table_oid);
-            // TODO: want to cache fd.
-            let f = File::create(path).unwrap();
-            page.write_bytes(f);
+
+            let mut relation_data = self.smgr.smgropen(&rnode);
+            relation_data.borrow_mut().mdwrite(page.header_pointer());
         }
     }
 }
