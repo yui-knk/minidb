@@ -2,6 +2,7 @@ use std::rc::Rc;
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::os::unix::io::{AsRawFd};
+use std::sync::RwLock;
 
 use errno::{Errno, errno, set_errno};
 
@@ -15,20 +16,23 @@ pub struct RelationData<'a> {
 }
 
 pub struct SMgrRelationData {
-    file: File,
+    config: Rc<Config>,
+    smgr_rnode: RelFileNode,
+    file: Option<File>,
     // current insertion target block
     smgr_targblock: BlockNum,
 }
 
 pub struct StorageManager {
     config: Rc<Config>,
-    cache: HashMap<RelFileNode, SMgrRelationData>
+    cache: HashMap<RelFileNode, RwLock<SMgrRelationData>>
 }
 
 impl SMgrRelationData {
-    pub fn mdread(&self, buffer: *mut libc::c_void) {
+    pub fn mdread(&mut self, buffer: *mut libc::c_void) {
         let s = DEFAULT_BLOCK_SIZE;
-        let fd = self.file.as_raw_fd();
+        self.mdopen();
+        let fd = self.file.as_ref().unwrap().as_raw_fd();
 
         unsafe {
             set_errno(Errno(0));
@@ -47,6 +51,24 @@ impl SMgrRelationData {
             }
         }
     }
+
+    fn mdopen(&mut self) {
+        if self.file.is_some() {
+            return
+        }
+
+        let path = self.config.data_file_path(self.smgr_rnode.db_oid, self.smgr_rnode.table_oid);
+        // TODO: Should we initalize file explicity?
+        // In pg mdopen function create a file only if bootstrap mode.
+        let f = OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .create(true)
+                    .open(&path)
+                    .unwrap();
+
+        self.file = Some(f);
+    }
 }
 
 impl StorageManager {
@@ -57,26 +79,19 @@ impl StorageManager {
         }
     }
 
-    pub fn smgropen(&mut self, rd_node: &RelFileNode) -> &SMgrRelationData {
+    pub fn smgropen(&mut self, rd_node: &RelFileNode) -> &RwLock<SMgrRelationData> {
         let config = &self.config;
         let cache = &mut self.cache;
 
         cache.entry(rd_node.clone()).or_insert_with(|| {
-            // TODO: we should open a file in smgrcreate function (with mdcreate function).
-            let path = config.data_file_path(rd_node.db_oid, rd_node.table_oid);
-            // TODO: Should we initalize file explicity?
-            // In pg mdopen function create a file only if bootstrap mode.
-            let f = OpenOptions::new()
-                        .read(true)
-                        .write(true)
-                        .create(true)
-                        .open(&path)
-                        .unwrap();
-
-            SMgrRelationData {
-                file: f,
-                smgr_targblock: InitialBlockNum,
-            }
+            RwLock::new(
+                SMgrRelationData {
+                    config: config.clone(),
+                    smgr_rnode: rd_node.clone(),
+                    file: None,
+                    smgr_targblock: InitialBlockNum,
+                }
+            )
         })
     }
 }

@@ -83,8 +83,8 @@ impl BufferManager {
     pub fn read_buffer(&mut self, file_node: RelFileNode, block_num: BlockNum) -> Buffer {
         let page = Page::new(DEFAULT_BLOCK_SIZE);
         let mut smgr = self.smgr.write().unwrap();
-        let relation_data = smgr.smgropen(&file_node);
-        relation_data.mdread(page.header_pointer());
+        let mut relation_data = smgr.smgropen(&file_node);
+        relation_data.write().unwrap().mdread(page.header_pointer());
         // TODO: Check length
         let buffer = Buffer::Buffer(self.pages.len());
         let tag = BufferTag {
