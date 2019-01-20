@@ -2,7 +2,7 @@ use std::rc::Rc;
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::os::unix::io::{AsRawFd};
-use std::sync::RwLock;
+use std::cell::RefCell;
 
 use errno::{Errno, errno, set_errno};
 
@@ -25,7 +25,7 @@ pub struct SMgrRelationData {
 
 pub struct StorageManager {
     config: Rc<Config>,
-    cache: HashMap<RelFileNode, RwLock<SMgrRelationData>>
+    cache: HashMap<RelFileNode, RefCell<SMgrRelationData>>
 }
 
 impl SMgrRelationData {
@@ -79,12 +79,12 @@ impl StorageManager {
         }
     }
 
-    pub fn smgropen(&mut self, rd_node: &RelFileNode) -> &RwLock<SMgrRelationData> {
+    pub fn smgropen(&mut self, rd_node: &RelFileNode) -> &RefCell<SMgrRelationData> {
         let config = &self.config;
         let cache = &mut self.cache;
 
         cache.entry(rd_node.clone()).or_insert_with(|| {
-            RwLock::new(
+            RefCell::new(
                 SMgrRelationData {
                     config: config.clone(),
                     smgr_rnode: rd_node.clone(),
