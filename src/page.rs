@@ -136,44 +136,6 @@ impl Page {
         self.header as *mut libc::c_void
     }
 
-    pub fn load<P: AsRef<Path>>(path: P) -> Page {
-        let f = File::open(&path).unwrap();
-        let s = DEFAULT_BLOCK_SIZE;
-        let page = Page::new(s);
-
-        unsafe {
-            let fd = f.into_raw_fd();
-            let rbyte = libc::read(fd, page.header as *mut libc::c_void, s as usize);
-            libc::close(fd);
-
-            if (rbyte != 0) && (rbyte != s as isize) {
-                panic!(
-                    "failed to read file. Expect to read {} bytes but read only {} bytes",
-                    s, rbyte
-                );
-            }
-        }
-
-        page
-    }
-
-    pub fn write_bytes(&self, f: File) -> File {
-        unsafe {
-            let fd = f.into_raw_fd();
-            let s = DEFAULT_BLOCK_SIZE;
-            let wbyte = libc::write(fd, self.header as *const libc::c_void, s as usize);
-
-            if wbyte != s as isize {
-                panic!(
-                    "failed to write file. Expect to write {} bytes but write only {} bytes",
-                    s, wbyte
-                );
-            }
-
-            File::from_raw_fd(fd)
-        }
-    }
-
     pub fn header(&self) -> &Header {
         unsafe {
             if self.header.is_null() {
