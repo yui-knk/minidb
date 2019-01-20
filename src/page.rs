@@ -132,6 +132,10 @@ impl Page {
         }
     }
 
+    pub fn header_pointer(&self) -> *mut libc::c_void {
+        self.header as *mut libc::c_void
+    }
+
     pub fn load<P: AsRef<Path>>(path: P) -> Page {
         let f = File::open(&path).unwrap();
         let s = DEFAULT_BLOCK_SIZE;
@@ -142,7 +146,7 @@ impl Page {
             let rbyte = libc::read(fd, page.header as *mut libc::c_void, s as usize);
             libc::close(fd);
 
-            if rbyte != s as isize {
+            if (rbyte != 0) && (rbyte != s as isize) {
                 panic!(
                     "failed to read file. Expect to read {} bytes but read only {} bytes",
                     s, rbyte

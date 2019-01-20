@@ -1,6 +1,7 @@
 extern crate libc;
 extern crate tempfile;
 extern crate byteorder;
+extern crate errno;
 
 pub mod config;
 
@@ -13,6 +14,7 @@ pub mod catalog {
 
 pub mod buffer_manager;
 pub mod oid_manager;
+pub mod storage_manager;
 pub mod ty;
 pub mod ddl;
 pub mod dml;

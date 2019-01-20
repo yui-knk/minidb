@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::sync::RwLock;
 
 use ty;
 use config::{Config};
@@ -8,6 +9,7 @@ use catalog::mini_class::MiniClassRecord;
 use catalog::mini_attribute::MiniAttributeRecord;
 use tuple::{TupleTableSlot};
 use buffer_manager::{RelFileNode, BufferManager};
+use storage_manager::StorageManager;
 use node_seqscan::{ScanState};
 use node_insert::{InsertState};
 
@@ -64,7 +66,8 @@ impl InsertIntoCommnad {
             table_oid: table_oid,
             db_oid: db_oid,
         };
-        let mut bm = BufferManager::new(1, self.config.clone());
+        let smgr = StorageManager::new(self.config.clone());
+        let mut bm = BufferManager::new(1, self.config.clone(), RwLock::new(smgr));
         let mut slot = TupleTableSlot::new(rm.attributes_clone(db_oid, table_oid));
         let attrs = rm.attributes(db_oid, table_oid);
         if attrs.len() != key_values.len() {
@@ -107,7 +110,8 @@ impl SelectFromCommnad {
             table_oid: table_oid,
             db_oid: db_oid,
         };
-        let mut bm = BufferManager::new(1, self.config.clone());
+        let smgr = StorageManager::new(self.config.clone());
+        let mut bm = BufferManager::new(1, self.config.clone(), RwLock::new(smgr));
         let mut scan = ScanState::new(&file_node, &rm);
         scan.exec_scan(&mut bm);
 

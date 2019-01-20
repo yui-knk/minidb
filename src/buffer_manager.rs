@@ -1,10 +1,12 @@
 use std::rc::Rc;
 use std::collections::HashMap;
 use std::fs::File;
+use std::sync::RwLock;
 
 use page::{Page};
 use config::{Config, N_BUFFERS, DEFAULT_BLOCK_SIZE};
 use oid_manager::Oid;
+use storage_manager::StorageManager;
 
 // Buffer identifiers
 // Zero is invalid, positive is the index of a shared buffer (1..NBuffers),
@@ -17,6 +19,7 @@ pub enum Buffer {
 
 // Block number of a data file (start with 0)
 pub type BlockNum = u32;
+pub const InitialBlockNum: BlockNum = 0;
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct RelFileNode {
@@ -41,6 +44,7 @@ struct BufferDesc {
 
 pub struct BufferManager {
     config: Rc<Config>,
+    smgr: RwLock<StorageManager>,
     buffer_descriptors: Vec<BufferDesc>,
     pages: Vec<Page>,
     // Hash from BufferTag to index of descriptor and page
@@ -64,9 +68,10 @@ impl Drop for BufferManager {
 }
 
 impl BufferManager {
-    pub fn new(size: usize, config: Rc<Config>) -> BufferManager {
+    pub fn new(size: usize, config: Rc<Config>, smgr: RwLock<StorageManager>) -> BufferManager {
         BufferManager {
             config: config,
+            smgr: smgr,
             buffer_descriptors: Vec::with_capacity(N_BUFFERS),
             pages: Vec::with_capacity(N_BUFFERS),
             buffer_hash: HashMap::new(),
@@ -76,13 +81,10 @@ impl BufferManager {
     // `ReadBuffer` function in pg.
     // This should recieve Relation instead of RelFileNode.
     pub fn read_buffer(&mut self, file_node: RelFileNode, block_num: BlockNum) -> Buffer {
-        let path = self.config.data_file_path(file_node.db_oid, file_node.table_oid);
-        let page = if path.exists() {
-            // TODO: `block_num` will be used.
-            Page::load(&path)
-        } else {
-            Page::new(DEFAULT_BLOCK_SIZE)
-        };
+        let page = Page::new(DEFAULT_BLOCK_SIZE);
+        let mut smgr = self.smgr.write().unwrap();
+        let relation_data = smgr.smgropen(&file_node);
+        relation_data.mdread(page.header_pointer());
         // TODO: Check length
         let buffer = Buffer::Buffer(self.pages.len());
         let tag = BufferTag {
