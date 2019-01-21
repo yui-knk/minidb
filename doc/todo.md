@@ -5,4 +5,6 @@
 * [ ] Multi pages support
 * [ ] Index support
 * [ ] Delete operation support
-* [ ] 
+* [ ] Update operation support
+* [ ] Null value support
+
