@@ -63,18 +63,6 @@ impl Config {
     pub fn data_file_path(&self, db_oid: Oid, table_oid: Oid) -> PathBuf {
         self.table_dir_path(db_oid, table_oid).join("data")
     }
-
-    fn database_dir_path_0<P: AsRef<Path>>(&self, dbname: P) -> PathBuf {
-        self.base_dir_path().join(dbname)
-    }
-
-    fn table_dir_path_0<P: AsRef<Path>>(&self, dbname: P, tablename: P) -> PathBuf {
-        self.database_dir_path_0(dbname).join(tablename)
-    }
-
-    fn data_file_path_0<P: AsRef<Path>>(&self, dbname: P, tablename: P) -> PathBuf {
-        self.table_dir_path_0(dbname, tablename).join("data")
-    }
 }
 
 #[cfg(test)]
