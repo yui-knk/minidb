@@ -26,7 +26,7 @@ type LocationIndex = u16;
 
 // We malloc block_size memory for header, lines and tuples.
 pub struct Page {
-    header: *mut Header,
+    header: *mut PageHeaderData,
 }
 
 // This is struct for line pointer.
@@ -45,15 +45,19 @@ const MEM_SIZE_OF_U8_AS_U16: u16 = mem::size_of::<u8>() as u16;
 
 const ITEM_ID_DATA_BYTE_SIZE: usize = mem::size_of::<ItemIdData>();
 
-// see: PageHeaderData
-pub struct Header {
+// `PageHeaderData` in pg.
+pub struct PageHeaderData {
     // offset to start of free space
     pd_lower: LocationIndex,
     // offset to end of free space
     pd_upper: LocationIndex,
 }
 
-const HEADER_BYTE_SIZE: usize = mem::size_of::<Header>();
+// `SizeOfPageHeaderData` in pg.
+const SIZE_OF_PAGE_HEADER_DATA: usize = mem::size_of::<PageHeaderData>();
+
+// `MaxHeapTupleSize` in pg.
+const MAX_HEAP_TUPLE_SIZE: usize = (DEFAULT_BLOCK_SIZE as usize) - SIZE_OF_PAGE_HEADER_DATA;
 
 impl ItemIdData {
     pub fn new(data: u32) -> ItemIdData {
@@ -93,25 +97,25 @@ impl ItemIdData {
     }
 }
 
-impl Header {
-    pub fn new(block_size: u16) -> Header {
-        Header {
-            pd_lower: HEADER_BYTE_SIZE as u16,
+impl PageHeaderData {
+    pub fn new(block_size: u16) -> PageHeaderData {
+        PageHeaderData {
+            pd_lower: SIZE_OF_PAGE_HEADER_DATA as u16,
             pd_upper: block_size,
         }
     }
 
-    pub fn init(header: &mut Header, block_size: u16) {
-        header.pd_lower = HEADER_BYTE_SIZE as u16;
+    pub fn init(header: &mut PageHeaderData, block_size: u16) {
+        header.pd_lower = SIZE_OF_PAGE_HEADER_DATA as u16;
         header.pd_upper = block_size;
     }
 
-    pub fn from_bytes(buf: &[u8]) -> Header {
-        if buf.len() != HEADER_BYTE_SIZE {
-            panic!("Length of from_bytes should be {}, but {}.", HEADER_BYTE_SIZE, buf.len());
+    pub fn from_bytes(buf: &[u8]) -> PageHeaderData {
+        if buf.len() != SIZE_OF_PAGE_HEADER_DATA {
+            panic!("Length of from_bytes should be {}, but {}.", SIZE_OF_PAGE_HEADER_DATA, buf.len());
         }
 
-        Header {
+        PageHeaderData {
             pd_lower: ((buf[0] as u16) << 8) | buf[1] as u16,
             pd_upper: ((buf[2] as u16) << 8) | buf[4] as u16,
         }
@@ -121,13 +125,13 @@ impl Header {
 impl Page {
     pub fn new(block_size: u16) -> Page {
         unsafe {
-            let header_p: *mut Header = libc::malloc(block_size as libc::size_t) as *mut Header;
+            let header_p: *mut PageHeaderData = libc::malloc(block_size as libc::size_t) as *mut PageHeaderData;
 
             if header_p.is_null() {
                 panic!("failed to allocate memory");
             }
 
-            Header::init(&mut *header_p, block_size);
+            PageHeaderData::init(&mut *header_p, block_size);
             Page { header: header_p }
         }
     }
@@ -136,7 +140,7 @@ impl Page {
         self.header as *mut libc::c_void
     }
 
-    pub fn header(&self) -> &Header {
+    pub fn header(&self) -> &PageHeaderData {
         unsafe {
             if self.header.is_null() {
                 panic!("header should not be null pointer.");
@@ -146,7 +150,7 @@ impl Page {
         }
     }
 
-    pub fn mut_header(&mut self) -> &mut Header {
+    pub fn mut_header(&mut self) -> &mut PageHeaderData {
         unsafe {
             if self.header.is_null() {
                 panic!("header should not be null pointer.");
@@ -157,16 +161,16 @@ impl Page {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.header().pd_lower as usize <= HEADER_BYTE_SIZE
+        self.header().pd_lower as usize <= SIZE_OF_PAGE_HEADER_DATA
     }
 
     pub fn page_get_max_offset_number(&self) -> OffsetNumber {
         let lower = self.header().pd_lower as usize;
 
-        if lower <= HEADER_BYTE_SIZE {
+        if lower <= SIZE_OF_PAGE_HEADER_DATA {
             0
         } else {
-            ((lower - HEADER_BYTE_SIZE) / ITEM_ID_DATA_BYTE_SIZE) as OffsetNumber
+            ((lower - SIZE_OF_PAGE_HEADER_DATA) / ITEM_ID_DATA_BYTE_SIZE) as OffsetNumber
         }
     }
 
@@ -202,29 +206,29 @@ impl Page {
     }
 
     pub fn entry_count(&self) -> u16 {
-        (((self.header().pd_lower as usize) - HEADER_BYTE_SIZE) / ITEM_ID_DATA_BYTE_SIZE) as u16
+        (((self.header().pd_lower as usize) - SIZE_OF_PAGE_HEADER_DATA) / ITEM_ID_DATA_BYTE_SIZE) as u16
     }
 
     pub fn print_info(&self) {
         println!(
-            "entry_count: {}.\npd_lower: {}.\npd_upper: {}.\nHEADER_BYTE_SIZE: {}.\nITEM_ID_DATA_BYTE_SIZE: {}.",
+            "entry_count: {}.\npd_lower: {}.\npd_upper: {}.\nSIZE_OF_PAGE_HEADER_DATA: {}.\nITEM_ID_DATA_BYTE_SIZE: {}.",
             self.entry_count(),
             self.header().pd_lower,
             self.header().pd_upper,
-            HEADER_BYTE_SIZE,
+            SIZE_OF_PAGE_HEADER_DATA,
             ITEM_ID_DATA_BYTE_SIZE
         );
     }
 
     pub fn get_item_ref(&self, index: u16) -> &ItemIdData {
         unsafe {
-            &*((self.header as *const u8).add(HEADER_BYTE_SIZE + ITEM_ID_DATA_BYTE_SIZE * (index as usize)) as *const ItemIdData)
+            &*((self.header as *const u8).add(SIZE_OF_PAGE_HEADER_DATA + ITEM_ID_DATA_BYTE_SIZE * (index as usize)) as *const ItemIdData)
         }
     }
 
     pub fn get_item(&self, index: u16) -> ItemIdData {
         unsafe {
-            *((self.header as *const u8).add(HEADER_BYTE_SIZE + ITEM_ID_DATA_BYTE_SIZE * (index as usize)) as *const ItemIdData)
+            *((self.header as *const u8).add(SIZE_OF_PAGE_HEADER_DATA + ITEM_ID_DATA_BYTE_SIZE * (index as usize)) as *const ItemIdData)
         }
     }
 
@@ -330,7 +334,7 @@ mod tests {
         let entry_size2 = (mem::size_of::<u8>() * 4) as u16;
 
         page.add_vec_entry(&entry1).unwrap();
-        assert_eq!(page.header().pd_lower, (HEADER_BYTE_SIZE + ITEM_ID_DATA_BYTE_SIZE) as u16);
+        assert_eq!(page.header().pd_lower, (SIZE_OF_PAGE_HEADER_DATA + ITEM_ID_DATA_BYTE_SIZE) as u16);
         assert_eq!(page.header().pd_upper, DEFAULT_BLOCK_SIZE - entry_size1);
         assert_eq!(page.is_empty(), false);
         assert_eq!(page.entry_count(), 1);
@@ -338,7 +342,7 @@ mod tests {
         assert_eq!(page.get_entry(0).unwrap(), entry1);
 
         page.add_vec_entry(&entry2).unwrap();
-        assert_eq!(page.header().pd_lower, (HEADER_BYTE_SIZE + ITEM_ID_DATA_BYTE_SIZE * 2) as u16);
+        assert_eq!(page.header().pd_lower, (SIZE_OF_PAGE_HEADER_DATA + ITEM_ID_DATA_BYTE_SIZE * 2) as u16);
         assert_eq!(page.header().pd_upper, DEFAULT_BLOCK_SIZE - entry_size1 - entry_size2);
         assert_eq!(page.is_empty(), false);
         assert_eq!(page.entry_count(), 2);
@@ -371,7 +375,7 @@ mod tests {
         slot.set_column(1, &Integer { elem: 22 });
         page.add_tuple_slot_entry(&slot).unwrap();
 
-        assert_eq!(page.header().pd_lower, (HEADER_BYTE_SIZE + ITEM_ID_DATA_BYTE_SIZE * 1) as u16);
+        assert_eq!(page.header().pd_lower, (SIZE_OF_PAGE_HEADER_DATA + ITEM_ID_DATA_BYTE_SIZE * 1) as u16);
         assert_eq!(page.header().pd_upper, DEFAULT_BLOCK_SIZE - slot_data_size);
         assert_eq!(page.is_empty(), false);
         assert_eq!(page.entry_count(), 1);
