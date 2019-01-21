@@ -1,6 +1,5 @@
 use std::rc::Rc;
 use std::collections::HashMap;
-use std::fs::File;
 
 use page::{Page};
 use config::{Config, N_BUFFERS, DEFAULT_BLOCK_SIZE};
@@ -83,7 +82,7 @@ impl BufferManager {
     // is needed.
     pub fn read_buffer(&mut self, file_node: RelFileNode, block_num: BlockNum) -> Buffer {
         let page = Page::new(DEFAULT_BLOCK_SIZE);
-        let mut relation_data = self.smgr.smgropen(&file_node);
+        let relation_data = self.smgr.smgropen(&file_node);
         relation_data.borrow_mut().mdread(page.header_pointer());
         // TODO: Check length
         let buffer = Buffer::Buffer(self.pages.len());

@@ -9,13 +9,13 @@ use config::{Config};
 // typedef unsigned int Oid;
 pub type Oid = u32;
 
-// Oid less than InitialOid is for system usage,
+// Oid less than INITIAL_OID is for system usage,
 // for example databases, tables, attributes...
-pub const InitialOid: Oid = 10000;
+const INITIAL_OID: Oid = 10000;
 
 pub fn create_oid_file(config: &Config) -> std::io::Result<()> {
     let mut f = File::create(config.oid_file_path())?;
-    f.write(oid_to_string(InitialOid).as_bytes()).map(|_| ())
+    f.write(oid_to_string(INITIAL_OID).as_bytes()).map(|_| ())
 }
 
 pub struct OidManager {

@@ -1,7 +1,4 @@
 use std::mem;
-use std::fs::File;
-use std::path::{Path};
-use std::os::unix::io::{IntoRawFd, FromRawFd};
 
 use config::DEFAULT_BLOCK_SIZE;
 use tuple::{TupleTableSlot};
