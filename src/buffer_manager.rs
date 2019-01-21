@@ -77,7 +77,10 @@ impl BufferManager {
     }
 
     // `ReadBuffer` function in pg.
-    // This should recieve Relation instead of RelFileNode.
+    // This should recieve Relation instead of RelFileNode because we should
+    // determine which block should be loaded, but the block info is stored in
+    // Relation (SMgrRelationData). Maby new method RelationGetBufferForTuple (hio.c)
+    // is needed.
     pub fn read_buffer(&mut self, file_node: RelFileNode, block_num: BlockNum) -> Buffer {
         let page = Page::new(DEFAULT_BLOCK_SIZE);
         let mut relation_data = self.smgr.smgropen(&file_node);
