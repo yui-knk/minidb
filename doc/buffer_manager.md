@@ -239,7 +239,3 @@ typedef int Buffer;
     LocalBufHdrGetBlock(bufHdr) = GetLocalBufferStorage();
   }
 ```
-
-## Pageと実ファイルのやりとり
-
-Buffer Manager("bufmgr.c")は`BufferDescriptors`グローバル変数と`BufferBlocks`グローバル変数によってBuffer領域を管理している。一方Storage Manager("smgr.c")は`SMgrRelationHash`ファイルグローバル変数を使って実ファイルのfdを管理している。両者は`RelFileNode`をつかってやりとりをしている。Buffer Managerの場合、`BufferDesc`の`BufferTag`から`RelFileNode`を取得できる。一方Storage Managerの場合、`SMgrRelationHash`のkeyが`RelFileNode`になっている。Buffer領域へのファイルデータの読み込みは`smgrread`、Buffer領域からファイルへのデータの書き込みは`smgrwrite`で行われる。どちらもBuffer側はpageのpointerを渡すようになっている。
