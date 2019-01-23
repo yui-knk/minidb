@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use std::cell::RefCell;
 
 use tuple::{TupleTableSlot};
