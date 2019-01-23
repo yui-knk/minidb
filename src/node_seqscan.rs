@@ -1,10 +1,12 @@
 #![allow(non_snake_case)]
+use std::cell::RefCell;
 
 use catalog::catalog::RecordManeger;
 use catalog::mini_attribute::MiniAttributeRecord;
-use buffer_manager::{Buffer, BlockNum, RelFileNode, BufferManager};
+use buffer_manager::{Buffer, BlockNum, BufferManager};
 use tuple::{TupleTableSlot, HeapTupleData, ItemPointerData};
 use off::{FirstOffsetNumber};
+use storage_manager::{RelationData};
 
 struct PlanState {
 
@@ -13,8 +15,7 @@ struct PlanState {
 pub struct ScanState<'a> {
     ps: PlanState,
     // relation being scanned
-    // ss_currentRelation: &'a Relation,
-    ss_currentRelation: &'a RelFileNode,
+    ss_currentRelation: &'a RefCell<RelationData>,
     // current scan descriptor for scan
     ss_currentScanDesc: HeapScanDescData<'a>,
     // pointer to slot in tuple table holding scan tuple
@@ -23,8 +24,7 @@ pub struct ScanState<'a> {
 
 struct HeapScanDescData<'a> {
     // heap relation descriptor
-    // rs_rd: &'a Relation,
-    rs_rd: &'a RelFileNode,
+    rs_rd: &'a RefCell<RelationData>,
 
     // total number of blocks in rel
     rs_nblocks: BlockNum,
@@ -47,13 +47,14 @@ struct HeapScanDescData<'a> {
 
 impl<'a> ScanState<'a> {
     // 
-    pub fn new(rnode: &'a RelFileNode, rm: &'a RecordManeger<MiniAttributeRecord>) -> ScanState<'a> {
+    pub fn new(relation: &'a RefCell<RelationData>, rm: &RecordManeger<MiniAttributeRecord>) -> ScanState<'a> {
+        let rnode = &relation.borrow().smgr_rnode;
         let attrs = rm.attributes_clone(rnode.db_oid, rnode.table_oid);
         let attrs_len = attrs.iter().fold(0, |acc, attr| acc + attr.len) as u32;
         let tuple = HeapTupleData::new(attrs_len);
 
         let scan_desc = HeapScanDescData {
-            rs_rd: rnode,
+            rs_rd: relation,
             rs_nblocks: 1,
             rs_startblock: 1,
             rs_numblocks: 1,
@@ -68,7 +69,7 @@ impl<'a> ScanState<'a> {
 
         ScanState {
             ps: plan_state,
-            ss_currentRelation: rnode,
+            ss_currentRelation: relation,
             ss_currentScanDesc: scan_desc,
             ss_ScanTupleSlot: Box::new(slot),
         }
@@ -119,7 +120,7 @@ impl<'a> ScanState<'a> {
 
         if !scan_desc.rs_inited {
             let page = scan_desc.rs_startblock;
-            let buf = bufmrg.read_buffer((*scan_desc.rs_rd).clone(), page);
+            let buf = bufmrg.read_buffer(&scan_desc.rs_rd.borrow(), page);
             scan_desc.rs_cbuf = buf;
             scan_desc.rs_cblock = page;
             lineoff = FirstOffsetNumber;

@@ -7,8 +7,8 @@ use catalog::mini_database::MiniDatabaseRecord;
 use catalog::mini_class::MiniClassRecord;
 use catalog::mini_attribute::MiniAttributeRecord;
 use tuple::{TupleTableSlot};
-use buffer_manager::{RelFileNode, BufferManager};
-use storage_manager::StorageManager;
+use buffer_manager::{BufferManager};
+use storage_manager::{StorageManager, RelationManager};
 use node_seqscan::{ScanState};
 use node_insert::{InsertState};
 
@@ -61,12 +61,10 @@ impl InsertIntoCommnad {
         let table_oid = table.find_mini_class_oid(db_oid, table_name)
                              .expect(&format!("{} table should be defined under the {} database. ", table_name, dbname));
         let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
-        let file_node = RelFileNode {
-            table_oid: table_oid,
-            db_oid: db_oid,
-        };
         let smgr = StorageManager::new(self.config.clone());
+        let mut rmgr = RelationManager::new(self.config.clone());
         let mut bm = BufferManager::new(1, self.config.clone(), smgr);
+        let relation = rmgr.get_relation(db_oid, table_oid);
         let mut slot = TupleTableSlot::new(rm.attributes_clone(db_oid, table_oid));
         let attrs = rm.attributes(db_oid, table_oid);
         if attrs.len() != key_values.len() {
@@ -82,7 +80,7 @@ impl InsertIntoCommnad {
             slot.set_column(i, t.as_ref());
         }
 
-        let mut insert = InsertState::new(&file_node, &slot);
+        let mut insert = InsertState::new(relation, &slot);
         insert.exec_insert(&mut bm);
 
         Ok(())
@@ -105,13 +103,11 @@ impl SelectFromCommnad {
         let table_oid = table.find_mini_class_oid(db_oid, table_name)
                              .expect(&format!("{} table should be defined under the {} database. ", table_name, dbname));
         let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
-        let file_node = RelFileNode {
-            table_oid: table_oid,
-            db_oid: db_oid,
-        };
         let smgr = StorageManager::new(self.config.clone());
+        let mut rmgr = RelationManager::new(self.config.clone());
+        let relation = rmgr.get_relation(db_oid, table_oid);
         let mut bm = BufferManager::new(1, self.config.clone(), smgr);
-        let mut scan = ScanState::new(&file_node, &rm);
+        let mut scan = ScanState::new(relation, &rm);
         scan.exec_scan(&mut bm);
 
         Ok(())

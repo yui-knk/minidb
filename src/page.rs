@@ -54,7 +54,7 @@ pub struct PageHeaderData {
 const SIZE_OF_PAGE_HEADER_DATA: usize = mem::size_of::<PageHeaderData>();
 
 // `MaxHeapTupleSize` in pg.
-const MAX_HEAP_TUPLE_SIZE: usize = (DEFAULT_BLOCK_SIZE as usize) - SIZE_OF_PAGE_HEADER_DATA;
+pub const MAX_HEAP_TUPLE_SIZE: usize = (DEFAULT_BLOCK_SIZE as usize) - SIZE_OF_PAGE_HEADER_DATA;
 
 impl ItemIdData {
     pub fn new(data: u32) -> ItemIdData {
@@ -199,7 +199,19 @@ impl Page {
     }
 
     fn has_space(&self, len: u16) -> bool {
-        self.header().pd_lower <= (self.header().pd_upper - len)
+        (len as usize) <= self.page_get_free_space()
+    }
+
+    // `PageGetFreeSpace` in pd.
+    // See also `PageGetHeapFreeSpace` in pd.
+    pub fn page_get_free_space(&self) -> usize {
+        let space = (self.header().pd_upper - self.header().pd_lower) as usize;
+
+        if space < ITEM_ID_DATA_BYTE_SIZE {
+            0
+        } else {
+            space - ITEM_ID_DATA_BYTE_SIZE
+        }
     }
 
     pub fn entry_count(&self) -> u16 {

@@ -12,6 +12,7 @@ pub type Oid = u32;
 // Oid less than INITIAL_OID is for system usage,
 // for example databases, tables, attributes...
 const INITIAL_OID: Oid = 10000;
+pub const DUMMY_OID: Oid = 0;
 
 pub fn create_oid_file(config: &Config) -> std::io::Result<()> {
     let mut f = File::create(config.oid_file_path())?;

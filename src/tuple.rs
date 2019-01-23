@@ -3,7 +3,7 @@ use off::{OffsetNumber, FirstOffsetNumber};
 use ty::{TypeValue, load_type_value};
 use page::{ItemIdData};
 
-// Form itemptr.h in pg.
+// From itemptr.h in pg.
 #[derive(Debug, Clone)]
 pub struct ItemPointerData
 {
@@ -50,6 +50,10 @@ impl TupleTableSlot {
             tuple_desc: Box::new(tuple_desc),
             heap_tuple: Box::new(heap_tuple),
         }
+    }
+
+    pub fn len(&self) -> u32 {
+        self.heap_tuple.t_len
     }
 
     pub fn load_data(&mut self, src: *const libc::c_void, n: u32, t_self: ItemPointerData) {

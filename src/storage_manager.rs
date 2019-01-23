@@ -7,26 +7,67 @@ use std::cell::RefCell;
 
 use errno::{Errno, errno, set_errno};
 
-use buffer_manager::{RelFileNode, BlockNum, InitialBlockNum};
+use buffer_manager::{RelFileNode, BlockNum, InvalidBlockNumber};
 use config::{Config, DEFAULT_BLOCK_SIZE};
+use oid_manager::{Oid, DUMMY_OID};
 
-pub struct RelationData<'a> {
+// `HEAP_DEFAULT_FILLFACTOR` in pg.
+// const HEAP_DEFAULT_FILLFACTOR: u8 = 100;
+
+pub struct RelationData {
     // relation physical identifier
     rd_node: RelFileNode,
-    rd_smgr: &'a SMgrRelationData,
+    pub smgr_rnode: RelFileNode
 }
 
 pub struct SMgrRelationData {
     config: Rc<Config>,
-    smgr_rnode: RelFileNode,
+    pub smgr_rnode: RelFileNode,
     file: Option<File>,
     // current insertion target block
-    smgr_targblock: BlockNum,
+    pub smgr_targblock: BlockNum,
 }
 
 pub struct StorageManager {
     config: Rc<Config>,
     cache: HashMap<RelFileNode, RefCell<SMgrRelationData>>
+}
+
+pub struct RelationManager {
+    config: Rc<Config>,
+    // RelationIdCache in pg.
+    cache: HashMap<Oid, RefCell<RelationData>>,
+}
+
+impl RelationManager {
+    pub fn new(config: Rc<Config>) -> RelationManager {
+        RelationManager {
+            config: config,
+            cache: HashMap::new(),
+        }
+    }
+
+    pub fn get_relation(&mut self, db_oid: Oid, table_oid: Oid) -> &mut RefCell<RelationData> {
+        let cache = &mut self.cache;
+
+        cache.entry(table_oid).or_insert_with(|| {
+            let rd_node = RelFileNode {
+                table_oid: table_oid,
+                db_oid: DUMMY_OID, // TODO
+            };
+            let smgr_rnode = RelFileNode {
+                table_oid: table_oid,
+                db_oid: db_oid,
+            };
+
+            RefCell::new(
+                RelationData {
+                    rd_node: rd_node,
+                    smgr_rnode: smgr_rnode,
+                }
+            )
+        })
+    }
 }
 
 impl SMgrRelationData {
@@ -91,6 +132,13 @@ impl SMgrRelationData {
         }
     }
 
+    pub fn mdnblocks(&mut self) -> BlockNum {
+        self.mdopen();
+        let mut f = self.file.as_ref().unwrap();
+        let len = f.seek(SeekFrom::End(0)).unwrap();
+        (len / DEFAULT_BLOCK_SIZE as u64) as BlockNum
+    }
+
     fn mdopen(&mut self) {
         if self.file.is_some() {
             return
@@ -118,17 +166,20 @@ impl StorageManager {
         }
     }
 
+    pub fn relation_smgropen(&mut self, relation: &RelationData) -> &RefCell<SMgrRelationData> {
+        self.smgropen(&relation.smgr_rnode)
+    }
+
     pub fn smgropen(&mut self, rd_node: &RelFileNode) -> &RefCell<SMgrRelationData> {
         let config = &self.config;
         let cache = &mut self.cache;
-
         cache.entry(rd_node.clone()).or_insert_with(|| {
             RefCell::new(
                 SMgrRelationData {
                     config: config.clone(),
                     smgr_rnode: rd_node.clone(),
                     file: None,
-                    smgr_targblock: InitialBlockNum,
+                    smgr_targblock: InvalidBlockNumber,
                 }
             )
         })

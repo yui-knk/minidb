@@ -1,10 +1,11 @@
 use std::rc::Rc;
 use std::collections::HashMap;
 
-use page::{Page};
+use page::{Page, MAX_HEAP_TUPLE_SIZE};
+use tuple::{TupleTableSlot};
 use config::{Config, N_BUFFERS, DEFAULT_BLOCK_SIZE};
 use oid_manager::Oid;
-use storage_manager::StorageManager;
+use storage_manager::{StorageManager, RelationData};
 
 // Buffer identifiers
 // Zero is invalid, positive is the index of a shared buffer (1..NBuffers),
@@ -17,7 +18,8 @@ pub enum Buffer {
 
 // Block number of a data file (start with 0)
 pub type BlockNum = u32;
-pub const InitialBlockNum: BlockNum = 0;
+const InitialBlockNum: BlockNum = 0;
+pub const InvalidBlockNumber: BlockNum = 0xFFFFFFFF;
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct RelFileNode {
@@ -75,19 +77,67 @@ impl BufferManager {
         }
     }
 
+    // `heap_insert` function in pg.
+    pub fn heap_insert(&mut self, relation: &RelationData, tuple: &TupleTableSlot) {
+        let buffer = self.relation_get_buffer_for_tuple(relation, tuple.len());
+        self.relation_put_heap_tuple(buffer, tuple);
+    }
+
+    // `RelationPutHeapTuple` in pg.
+    fn relation_put_heap_tuple(&mut self, buffer :Buffer, tuple: &TupleTableSlot) {
+        let page = self.get_page_mut(buffer);
+        page.add_tuple_slot_entry(tuple).unwrap();
+    }
+
+    // `RelationGetBufferForTuple` function in pg.
+    fn relation_get_buffer_for_tuple(&mut self, relation: &RelationData, len: u32) -> Buffer {
+        if (len as usize) > MAX_HEAP_TUPLE_SIZE {
+            panic!("row is too big: size {}, , maximum size {}", len, MAX_HEAP_TUPLE_SIZE);
+        }
+
+        let mut target_block = InvalidBlockNumber;
+
+        {
+            let mut rd_smgr = self.smgr.relation_smgropen(relation).borrow_mut();
+            target_block = rd_smgr.smgr_targblock;
+
+            if target_block == InvalidBlockNumber {
+                let nblocks = rd_smgr.mdnblocks();
+
+                if nblocks > 0 {
+                    target_block = nblocks - 1;
+                }
+            }
+        }
+
+        loop {
+            let buffer = self.read_buffer(relation, target_block);
+            let page_free_space = self.get_page_free_space(buffer);
+            let mut rd_smgr = self.smgr.relation_smgropen(&relation).borrow_mut();
+
+            if (len as usize) <= page_free_space {
+                rd_smgr.smgr_targblock = target_block;
+                return buffer;
+            }
+
+            // TODO: release buffer.
+            target_block = target_block + 1;
+        }
+    }
+
     // `ReadBuffer` function in pg.
     // This should recieve Relation instead of RelFileNode because we should
     // determine which block should be loaded, but the block info is stored in
-    // Relation (SMgrRelationData). Maby new method RelationGetBufferForTuple (hio.c)
-    // is needed.
-    pub fn read_buffer(&mut self, file_node: RelFileNode, block_num: BlockNum) -> Buffer {
+    // Relation (SMgrRelationData).
+    pub fn read_buffer(&mut self, relation: &RelationData, block_num: BlockNum) -> Buffer {
         let page = Page::new(DEFAULT_BLOCK_SIZE);
-        let relation_data = self.smgr.smgropen(&file_node);
-        relation_data.borrow_mut().mdread(page.header_pointer());
+        let mut rd_smgr = self.smgr.relation_smgropen(&relation).borrow_mut();
+
+        rd_smgr.mdread(page.header_pointer());
         // TODO: Check length
         let buffer = Buffer::Buffer(self.pages.len());
         let tag = BufferTag {
-            rnode: file_node,
+            rnode: rd_smgr.smgr_rnode.clone(),
             block_num: block_num,
         };
         let descriptor = BufferDesc {
@@ -101,6 +151,10 @@ impl BufferManager {
         self.buffer_descriptors.push(descriptor);
 
         buffer
+    }
+
+    fn get_page_free_space(&self, buffer_id: Buffer) -> usize {
+        self.get_page(buffer_id).page_get_free_space()
     }
 
     pub fn get_page(&self, buffer_id: Buffer) -> &Page {
