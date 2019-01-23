@@ -144,3 +144,33 @@ _mdnblocks(SMgrRelation reln, ForkNumber forknum, MdfdVec *seg)
 `smgropen`で新規に`SMgrRelation`を作成したとき、`smgr_targblock`は`InvalidBlockNumber`で作成される。
 `smgr_targblock`へのアクセスは`RelationGetTargetBlock`/`RelationSetTargetBlock`("rel.h")で行う。
 `RelationGetBufferForTuple`("hio.c")はtupleを書き込むためのbufferを取得するための関数であるが、ここでは現在の`smgr_targblock`、`FreeSpace`、これから挿入しようとしているtupleの長さなどをもとに`targetBlock`を決定し、`ReadBuffer`によってbufferへの読み込みを行う。そして最後に`smgr_targblock`を更新する。
+
+# `RelationData`(`Relation`)の初期化
+
+"relcache.c"を参照。
+`RelationIdCache`という`Oid`から`RelIdCacheEnt`(実体は`Relation`と思ってよい)へのキャッシュがある。外側からは`RelationIdGetRelation`関数を使ってアクセスする。
+
+```c
+Relation
+RelationIdGetRelation(Oid relationId)
+{}
+```
+
+キャッシュにないときは`RelationData`の初期化ルーチンとして`RelationBuildDesc`が呼ばれる。ちなみに`RelationData`の`rd_node`のセットアップは`RelationInitPhysicalAddr`で行なっている。
+`Relation`の持つ情報をもとに`rd_smgr`を設定するための関数として`smgrsetowner`がある。この関数は`RelationOpenSmgr`というマクロ経由で呼び出される。
+
+```c
+/*
+ * RelationOpenSmgr
+ *    Open the relation at the smgr level, if not already done.
+ */
+#define RelationOpenSmgr(relation) \
+  do { \
+    if ((relation)->rd_smgr == NULL) \
+      smgrsetowner(&((relation)->rd_smgr), smgropen((relation)->rd_node, (relation)->rd_backend)); \
+  } while (0)
+```
+
+# Question
+
+`RelationData`の`rd_node`と`SMgrRelationData`の`smgr_rnode`(の`node`)は異なるのか？
