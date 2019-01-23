@@ -8,7 +8,7 @@ use catalog::mini_class::MiniClassRecord;
 use catalog::mini_attribute::MiniAttributeRecord;
 use tuple::{TupleTableSlot};
 use buffer_manager::{BufferManager};
-use storage_manager::{StorageManager, RelationManager};
+use storage_manager::{RelationManager};
 use node_seqscan::{ScanState};
 use node_insert::{InsertState};
 
@@ -61,9 +61,8 @@ impl InsertIntoCommnad {
         let table_oid = table.find_mini_class_oid(db_oid, table_name)
                              .expect(&format!("{} table should be defined under the {} database. ", table_name, dbname));
         let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
-        let smgr = StorageManager::new(self.config.clone());
         let mut rmgr = RelationManager::new(self.config.clone());
-        let mut bm = BufferManager::new(1, self.config.clone(), smgr);
+        let mut bm = BufferManager::new(1, self.config.clone());
         let relation = rmgr.get_relation(db_oid, table_oid);
         let mut slot = TupleTableSlot::new(rm.attributes_clone(db_oid, table_oid));
         let attrs = rm.attributes(db_oid, table_oid);
@@ -103,10 +102,9 @@ impl SelectFromCommnad {
         let table_oid = table.find_mini_class_oid(db_oid, table_name)
                              .expect(&format!("{} table should be defined under the {} database. ", table_name, dbname));
         let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
-        let smgr = StorageManager::new(self.config.clone());
         let mut rmgr = RelationManager::new(self.config.clone());
         let relation = rmgr.get_relation(db_oid, table_oid);
-        let mut bm = BufferManager::new(1, self.config.clone(), smgr);
+        let mut bm = BufferManager::new(1, self.config.clone());
         let mut scan = ScanState::new(relation, &rm);
         scan.exec_scan(&mut bm);
 

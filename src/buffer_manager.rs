@@ -67,10 +67,10 @@ impl Drop for BufferManager {
 }
 
 impl BufferManager {
-    pub fn new(size: usize, config: Rc<Config>, smgr: StorageManager) -> BufferManager {
+    pub fn new(size: usize, config: Rc<Config>) -> BufferManager {
         BufferManager {
-            config: config,
-            smgr: smgr,
+            config: config.clone(),
+            smgr: StorageManager::new(config),
             buffer_descriptors: Vec::with_capacity(N_BUFFERS),
             pages: Vec::with_capacity(N_BUFFERS),
             buffer_hash: HashMap::new(),
