@@ -1,12 +1,11 @@
 use std::rc::Rc;
 
-use ty;
 use config::{Config};
 use catalog::catalog::RecordManeger;
 use catalog::mini_database::MiniDatabaseRecord;
 use catalog::mini_class::MiniClassRecord;
 use catalog::mini_attribute::MiniAttributeRecord;
-use tuple::{TupleTableSlot};
+use tuple::{TupleTableSlot, KeyValue};
 use buffer_manager::{BufferManager};
 use storage_manager::{RelationManager};
 use node_seqscan::{ScanState};
@@ -18,32 +17,6 @@ pub struct InsertIntoCommnad {
 
 pub struct SelectFromCommnad {
     config: Rc<Config>,
-}
-
-pub struct KeyValue {
-    key: String,
-    value: String,
-}
-
-pub struct KeyValueBuilder {
-    key_values: Vec<KeyValue>,
-}
-
-impl KeyValueBuilder {
-    pub fn new() -> KeyValueBuilder {
-        KeyValueBuilder { key_values: Vec::new() }
-    }
-
-    pub fn add_pair(&mut self, key: String, value: String) {
-        self.key_values.push(KeyValue {
-            key: key,
-            value: value,
-        })
-    }
-
-    pub fn build(self) -> Vec<KeyValue> {
-        self.key_values
-    }
 }
 
 impl InsertIntoCommnad {
@@ -66,18 +39,7 @@ impl InsertIntoCommnad {
         let relation = rmgr.get_relation(db_oid, table_oid);
         let mut slot = TupleTableSlot::new(rm.attributes_clone(db_oid, table_oid));
         let attrs = rm.attributes(db_oid, table_oid);
-        if attrs.len() != key_values.len() {
-            return Err(format!("Length not match. attrs: {}, key_values: {}", attrs.len(), key_values.len()));
-        }
-
-        for ((i, kv), attr) in key_values.iter().enumerate().zip(attrs.iter()) {
-            if kv.key != attr.name {
-                return Err(format!("Name not match. attrs: {}, key_values: {}", attr.name, kv.key));
-            }
-
-            let t = ty::build_type_value(&attr.ty, &kv.value)?;
-            slot.set_column(i, t.as_ref());
-        }
+        slot.update_tuple(key_values)?;
 
         let mut insert = InsertState::new(relation, &slot);
         insert.exec_insert(&mut bm);

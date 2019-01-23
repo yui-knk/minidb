@@ -31,11 +31,11 @@ pub fn load_type_value(tl: &TypeLabel, src: *const libc::c_void) -> Box<TypeValu
 // This function transforms input from user, mainly SQL, to
 // TypeValue, so use `parse` method. We can call `unwrap` because
 // `row` will be passed parser syntax check.
-pub fn build_type_value(tl: &TypeLabel, row: &str) -> Result<Box<TypeValue>, String> {
+pub fn build_type_value(tl: &TypeLabel, row: &str) -> Box<TypeValue> {
     match tl {
         TypeLabel::Integer => {
             let elem = row.parse::<i32>().unwrap();
-            Ok(Box::new(Integer { elem: elem }))
+            Box::new(Integer { elem: elem })
         }
     }
 }

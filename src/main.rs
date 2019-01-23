@@ -9,7 +9,8 @@ use clap::{Arg, App, SubCommand};
 use minidb::oid_manager::OidManager;
 use minidb::config::{Config};
 use minidb::ddl::{CreateDatabaseCommand, CreateTableCommand};
-use minidb::dml::{InsertIntoCommnad, SelectFromCommnad, KeyValueBuilder};
+use minidb::dml::{InsertIntoCommnad, SelectFromCommnad};
+use minidb::tuple::{KeyValueBuilder};
 use minidb::init::{InitCommand};
 
 fn main() {

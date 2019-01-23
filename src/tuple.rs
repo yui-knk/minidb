@@ -1,7 +1,33 @@
 use catalog::mini_attribute::MiniAttributeRecord;
 use off::{OffsetNumber, FirstOffsetNumber};
-use ty::{TypeValue, load_type_value};
+use ty::{TypeValue, load_type_value, build_type_value};
 use page::{ItemIdData};
+
+pub struct KeyValue {
+    key: String,
+    value: String,
+}
+
+pub struct KeyValueBuilder {
+    key_values: Vec<KeyValue>,
+}
+
+impl KeyValueBuilder {
+    pub fn new() -> KeyValueBuilder {
+        KeyValueBuilder { key_values: Vec::new() }
+    }
+
+    pub fn add_pair(&mut self, key: String, value: String) {
+        self.key_values.push(KeyValue {
+            key: key,
+            value: value,
+        })
+    }
+
+    pub fn build(self) -> Vec<KeyValue> {
+        self.key_values
+    }
+}
 
 // From itemptr.h in pg.
 #[derive(Debug, Clone)]
@@ -90,6 +116,28 @@ impl TupleTableSlot {
         let n = ty.len();
         let offset = self.tuple_desc.attrs_len(index) as usize;
         self.heap_tuple.t_data.set_column(src, n, offset);
+    }
+
+    pub fn update_tuple(&mut self, key_values: Vec<KeyValue>) -> Result<(), String> {
+        if self.attrs_count() != key_values.len() {
+            return Err(format!("Length not match. attrs: {}, key_values: {}", self.attrs_count(), key_values.len()));
+        }
+
+        for (kv, attr) in key_values.iter().zip(self.tuple_desc.attrs.iter()) {
+            if kv.key != attr.name {
+                return Err(format!("Name not match. attrs: {}, key_values: {}", attr.name, kv.key));
+            }
+        }
+
+        let v: Vec<Box<TypeValue>> = key_values.iter().zip(self.tuple_desc.attrs.iter()).map(|(kv, attr)|
+            build_type_value(&attr.ty, &kv.value)
+        ).collect();
+
+        for (i, t) in v.iter().enumerate() {
+            self.set_column(i, t.as_ref());
+        }
+
+        Ok(())
     }
 
     pub fn data_ptr(&self) -> *const libc::c_void {
