@@ -30,7 +30,7 @@ pub struct RelFileNode {
 }
 
 // `typedef struct buftag {} BufferTag` in pg.
-#[derive(Hash, Eq, PartialEq, Debug)]
+#[derive(Hash, Eq, PartialEq, Clone, Debug)]
 struct BufferTag {
     rnode: RelFileNode,
     block_num: BlockNum,
@@ -109,6 +109,8 @@ impl BufferManager {
 
                 if nblocks > 0 {
                     target_block = nblocks - 1;
+                } else {
+                    target_block = 0;
                 }
             }
         }
@@ -162,7 +164,7 @@ impl BufferManager {
             block_num: block_num,
         };
         let descriptor = BufferDesc {
-            tag: tag,
+            tag: tag.clone(),
             buf_id: buffer,
             locked: false,
             dirty: false,
@@ -170,6 +172,9 @@ impl BufferManager {
         };
         self.pages.push(page);
         self.buffer_descriptors.push(descriptor);
+        self.buffer_hash.entry(tag).or_insert_with(|| {
+            buffer
+        });
 
         (buffer, block_num)
     }
@@ -191,7 +196,7 @@ impl BufferManager {
             block_num: block_num,
         };
         let descriptor = BufferDesc {
-            tag: tag,
+            tag: tag.clone(),
             buf_id: buffer,
             locked: false,
             dirty: false,
@@ -199,6 +204,9 @@ impl BufferManager {
         };
         self.pages.push(page);
         self.buffer_descriptors.push(descriptor);
+        self.buffer_hash.entry(tag).or_insert_with(|| {
+            buffer
+        });
 
         buffer
     }
