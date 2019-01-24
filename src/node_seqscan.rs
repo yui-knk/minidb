@@ -3,7 +3,7 @@ use std::cell::RefCell;
 
 use catalog::catalog::RecordManeger;
 use catalog::mini_attribute::MiniAttributeRecord;
-use buffer_manager::{Buffer, BlockNum, BufferManager};
+use buffer_manager::{Buffer, BlockNum, BufferManager, InvalidBlockNumber};
 use tuple::{TupleTableSlot, HeapTupleData, ItemPointerData};
 use off::{FirstOffsetNumber};
 use storage_manager::{RelationData};
@@ -22,6 +22,7 @@ pub struct ScanState<'a> {
     ss_ScanTupleSlot: Box<TupleTableSlot>,
 }
 
+#[derive(Debug)]
 struct HeapScanDescData<'a> {
     // heap relation descriptor
     rs_rd: &'a RefCell<RelationData>,
@@ -46,7 +47,7 @@ struct HeapScanDescData<'a> {
 }
 
 impl<'a> ScanState<'a> {
-    // 
+    // `initscan` in pg.
     pub fn new(relation: &'a RefCell<RelationData>, rm: &RecordManeger<MiniAttributeRecord>) -> ScanState<'a> {
         let rnode = &relation.borrow().smgr_rnode;
         let attrs = rm.attributes_clone(rnode.db_oid, rnode.table_oid);
@@ -55,13 +56,13 @@ impl<'a> ScanState<'a> {
 
         let scan_desc = HeapScanDescData {
             rs_rd: relation,
-            rs_nblocks: 1,
-            rs_startblock: 1,
-            rs_numblocks: 1,
+            rs_nblocks: 1, // TODO: use RelationGetNumberOfBlocks
+            rs_startblock: 0,
+            rs_numblocks: InvalidBlockNumber,
             rs_inited: false,
             rs_finished: false,
             rs_ctup: Box::new(tuple),
-            rs_cblock: 0,
+            rs_cblock: InvalidBlockNumber,
             rs_cbuf: Buffer::InvalidBuffer,
         };
         let plan_state = PlanState {};
@@ -105,8 +106,9 @@ impl<'a> ScanState<'a> {
         }
     }
 
-    // Get next tuple
     // heap_getnext in pg.
+    //
+    // Get next tuple
     fn heap_getnext(&mut self, bufmrg: &mut BufferManager) -> bool {
         self.heapgettup(bufmrg);
         let scan_desc = &self.ss_currentScanDesc;
@@ -115,25 +117,22 @@ impl<'a> ScanState<'a> {
 
     fn heapgettup(&mut self, bufmrg: &mut BufferManager) {
         let scan_desc = &mut self.ss_currentScanDesc;
-        let mut lineoff = FirstOffsetNumber;
-        let mut linesleft = 0;
 
-        if !scan_desc.rs_inited {
+        let lineoff = if !scan_desc.rs_inited {
             let page = scan_desc.rs_startblock;
             let buf = bufmrg.read_buffer(&scan_desc.rs_rd.borrow(), page);
             scan_desc.rs_cbuf = buf;
             scan_desc.rs_cblock = page;
-            lineoff = FirstOffsetNumber;
-
             scan_desc.rs_inited = true;
+            FirstOffsetNumber
         } else {
-            lineoff = scan_desc.rs_ctup.get_item_offset_number() + 1;
-        }
+            scan_desc.rs_ctup.get_item_offset_number() + 1
+        };
 
         // heapgettup in pg.
         let dp = bufmrg.get_page(scan_desc.rs_cbuf);
         let lines = dp.page_get_max_offset_number();
-        linesleft = lines - lineoff;
+        let mut linesleft = lines - lineoff;
 
         loop {
             // Iterate a page.
