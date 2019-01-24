@@ -95,19 +95,19 @@ impl ItemIdData {
 }
 
 impl PageHeaderData {
-    pub fn new(block_size: u16) -> PageHeaderData {
+    fn new(block_size: u16) -> PageHeaderData {
         PageHeaderData {
             pd_lower: SIZE_OF_PAGE_HEADER_DATA as u16,
             pd_upper: block_size,
         }
     }
 
-    pub fn init(header: &mut PageHeaderData, block_size: u16) {
-        header.pd_lower = SIZE_OF_PAGE_HEADER_DATA as u16;
-        header.pd_upper = block_size;
+    fn init(&mut self, block_size: u16) {
+        self.pd_lower = SIZE_OF_PAGE_HEADER_DATA as u16;
+        self.pd_upper = block_size;
     }
 
-    pub fn from_bytes(buf: &[u8]) -> PageHeaderData {
+    fn from_bytes(buf: &[u8]) -> PageHeaderData {
         if buf.len() != SIZE_OF_PAGE_HEADER_DATA {
             panic!("Length of from_bytes should be {}, but {}.", SIZE_OF_PAGE_HEADER_DATA, buf.len());
         }
@@ -128,9 +128,14 @@ impl Page {
                 panic!("failed to allocate memory");
             }
 
-            PageHeaderData::init(&mut *header_p, block_size);
+            (*header_p).init(block_size);
             Page { header: header_p }
         }
+    }
+
+    // `PageInit` in pg.
+    pub fn page_init(&mut self, block_size: u16) {
+        self.mut_header().init(block_size);
     }
 
     pub fn header_pointer(&self) -> *mut libc::c_void {
@@ -196,6 +201,12 @@ impl Page {
 
     pub fn add_vec_entry(&mut self, entry: &Vec<u8>) -> Result<(), String> {
         self.add_entry(entry.as_ptr() as *const libc::c_void, entry.len() as u16)
+    }
+
+    pub fn fill_with_zero(&mut self, n: usize) {
+        unsafe {
+            libc::memset(self.header as *mut libc::c_void, 0, n);
+        }
     }
 
     fn has_space(&self, len: u16) -> bool {

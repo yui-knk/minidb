@@ -71,7 +71,7 @@ impl RelationManager {
 }
 
 impl SMgrRelationData {
-    pub fn mdread(&mut self, buffer: *mut libc::c_void) {
+    pub fn mdread(&mut self, block_num: BlockNum, buffer: *mut libc::c_void) {
         let s = DEFAULT_BLOCK_SIZE;
         self.mdopen();
 
@@ -102,6 +102,7 @@ impl SMgrRelationData {
         }
     }
 
+    // TODO: Add block_num to args
     pub fn mdwrite(&mut self, buffer: *const libc::c_void) {
         let s = DEFAULT_BLOCK_SIZE;
         self.mdopen();
@@ -110,6 +111,38 @@ impl SMgrRelationData {
         let offset = 0;
         if f.seek(SeekFrom::Start(offset)).unwrap() != offset {
             panic!("Failed to seek file. '{}'", offset);
+        }
+
+        let fd = f.as_raw_fd();
+
+        unsafe {
+            set_errno(Errno(0));
+
+            let wbyte = libc::write(fd, buffer, s as usize);
+
+            if wbyte == -1 {
+                panic!("Failed to write file. '{}'", errno());
+            }
+
+            if wbyte != s as isize {
+                panic!(
+                    "failed to write file. Expect to write {} bytes but write only {} bytes",
+                    s, wbyte
+                );
+            }
+        }
+    }
+
+    pub fn mdextend(&mut self, block_num: BlockNum, buffer: *const libc::c_void) {
+        let s = DEFAULT_BLOCK_SIZE as u32;
+        self.mdopen();
+
+        let mut f = self.file.as_ref().unwrap();
+
+        // Seek to start of the new page (BlockNum is 0-origin).
+        let seekpos = s * block_num;
+        if f.seek(SeekFrom::Start(seekpos.into())).unwrap() != seekpos.into() {
+            panic!("Failed to seek file. '{}'", seekpos);
         }
 
         let fd = f.as_raw_fd();

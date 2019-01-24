@@ -36,6 +36,7 @@ struct BufferTag {
     block_num: BlockNum,
 }
 
+#[derive(Debug)]
 struct BufferDesc {
     tag: BufferTag,
     buf_id: Buffer, // buffer's index number (from 0)
@@ -112,20 +113,67 @@ impl BufferManager {
             }
         }
 
-        loop {
+        // When we implement VACUUM and FSM, we should check there is space
+        // in each page in loop. But now we do not have such fetures, so
+        // we can simply get new page if there is no space in current page.
+        //
+        // loop {
+        {
             let buffer = self.read_buffer(relation, target_block);
             let page_free_space = self.get_page_free_space(buffer);
             let mut rd_smgr = self.smgr.relation_smgropen(&relation).borrow_mut();
-
             if (len as usize) <= page_free_space {
                 rd_smgr.smgr_targblock = target_block;
                 return buffer;
             }
 
             // TODO: release buffer.
-            target_block = target_block + 1;
         }
+
+        // `buffer = ReadBufferBI(relation, P_NEW, bistate);` call in pg.
+        // TODO: Implement BufferGetBlockNumber
+        let (buffer, block_num) = self.read_buffer_new_page(relation);
+        self.get_page_mut(buffer).page_init(DEFAULT_BLOCK_SIZE);
+        let mut rd_smgr = self.smgr.relation_smgropen(&relation).borrow_mut();
+        rd_smgr.smgr_targblock = block_num;
+
+        return buffer
     }
+
+    // `BufferGetBlockNumber` in pg.
+    // fn buffer_get_block_number(&self, ) {
+    // }
+
+    // `blockNum == P_NEW` case of `ReadBuffer_common` in pg.
+    //
+    // This method create new page.
+    fn read_buffer_new_page(&mut self, relation: &RelationData) -> (Buffer, BlockNum) {
+        let mut page = Page::new(DEFAULT_BLOCK_SIZE);
+        page.fill_with_zero(DEFAULT_BLOCK_SIZE as usize);
+        let mut rd_smgr = self.smgr.relation_smgropen(&relation).borrow_mut();
+        // Get latest block number.
+        let block_num = rd_smgr.mdnblocks();
+
+        rd_smgr.mdextend(block_num, page.header_pointer());
+        // TODO: Check length
+        let buffer = Buffer::Buffer(self.pages.len());
+        let tag = BufferTag {
+            rnode: rd_smgr.smgr_rnode.clone(),
+            block_num: block_num,
+        };
+        let descriptor = BufferDesc {
+            tag: tag,
+            buf_id: buffer,
+            locked: false,
+            dirty: false,
+            valid: true,
+        };
+        self.pages.push(page);
+        self.buffer_descriptors.push(descriptor);
+
+        (buffer, block_num)
+    }
+
 
     // `ReadBuffer` function in pg.
     // This should recieve Relation instead of RelFileNode because we should
@@ -135,7 +183,7 @@ impl BufferManager {
         let page = Page::new(DEFAULT_BLOCK_SIZE);
         let mut rd_smgr = self.smgr.relation_smgropen(&relation).borrow_mut();
 
-        rd_smgr.mdread(page.header_pointer());
+        rd_smgr.mdread(block_num, page.header_pointer());
         // TODO: Check length
         let buffer = Buffer::Buffer(self.pages.len());
         let tag = BufferTag {
