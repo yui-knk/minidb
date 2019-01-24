@@ -213,7 +213,7 @@ impl StorageManager {
                     config: config.clone(),
                     smgr_rnode: rd_node.clone(),
                     file: None,
-                    smgr_targblock: InvalidBlockNumber,
+                    smgr_targblock: InvalidBlockNumber, // TODO: When this will be updated?
                 }
             )
         })
