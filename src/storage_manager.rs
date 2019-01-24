@@ -102,15 +102,15 @@ impl SMgrRelationData {
         }
     }
 
-    // TODO: Add block_num to args
-    pub fn mdwrite(&mut self, buffer: *const libc::c_void) {
-        let s = DEFAULT_BLOCK_SIZE;
+    pub fn mdwrite(&mut self, block_num: BlockNum, buffer: *const libc::c_void) {
+        let s = DEFAULT_BLOCK_SIZE as u32;
         self.mdopen();
+
         let mut f = self.file.as_ref().unwrap();
 
-        let offset = 0;
-        if f.seek(SeekFrom::Start(offset)).unwrap() != offset {
-            panic!("Failed to seek file. '{}'", offset);
+        let seekpos = s * block_num;
+        if f.seek(SeekFrom::Start(seekpos.into())).unwrap() != seekpos.into() {
+            panic!("Failed to seek file. '{}'", seekpos);
         }
 
         let fd = f.as_raw_fd();
