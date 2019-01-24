@@ -38,7 +38,6 @@ impl InsertIntoCommnad {
         let mut bm = BufferManager::new(1, self.config.clone());
         let relation = rmgr.get_relation(db_oid, table_oid);
         let mut slot = TupleTableSlot::new(rm.attributes_clone(db_oid, table_oid));
-        let attrs = rm.attributes(db_oid, table_oid);
         slot.update_tuple(key_values)?;
 
         let mut insert = InsertState::new(relation, &slot);
