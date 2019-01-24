@@ -171,6 +171,26 @@ RelationIdGetRelation(Oid relationId)
   } while (0)
 ```
 
+# 新しくpage (block)を足すとき
+
+tupleのinsert時(`RelationGetBufferForTuple`)などに現在のpageがいっぱいになり、新しいpageを確保する必要が生じることがある。
+具体的なコードを追って行くと以下ようになる。
+
+* `RelationGetBufferForTuple`の`RecordAndGetPageWithFreeSpace`が`InvalidBlockNumber`をかえし、whileループを抜けて"Have to extend the relation."以下にくる
+* `ReadBufferBI(relation, P_NEW, bistate)`をよぶ。なお`#define P_NEW  InvalidBlockNumber`である
+* `ReadBufferExtended`をよぶ
+* `ReadBuffer_common`をよぶ。`isExtend = (blockNum == P_NEW)`なので`isExtend`がtrueになり、以下
+のブロックが呼ばれる。なお`smgrextend`の引数の`blockNum`は`blockNum = smgrnblocks(smgr, forkNum)`の値であり、block numberは0-originなので、当該ページの"block number + 1"の値になっている。また新しく作ったpageに書き込むsrcとなる`bufBlock`は直前で`MemSet`され、すべてが0で埋められている。
+
+```c
+    /* new buffers are zero-filled */
+    MemSet((char *) bufBlock, 0, BLCKSZ);
+    /* don't set checksum for all-zero page */
+    smgrextend(smgr, forkNum, blockNum, (char *) bufBlock, false);
+```
+
+* `smgrextend`は結局`mdextend`のことであるので、`mdextend`がよばれる。`mdextend`では新しいpageの先頭までseekして、file writeする。
+
 # Question
 
 `RelationData`の`rd_node`と`SMgrRelationData`の`smgr_rnode`(の`node`)は異なるのか？
