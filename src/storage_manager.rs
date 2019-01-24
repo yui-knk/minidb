@@ -14,6 +14,7 @@ use oid_manager::{Oid, DUMMY_OID};
 // `HEAP_DEFAULT_FILLFACTOR` in pg.
 // const HEAP_DEFAULT_FILLFACTOR: u8 = 100;
 
+#[derive(Debug)]
 pub struct RelationData {
     // relation physical identifier
     rd_node: RelFileNode,
