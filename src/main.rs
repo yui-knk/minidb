@@ -9,7 +9,7 @@ use clap::{Arg, App, SubCommand};
 use minidb::oid_manager::OidManager;
 use minidb::config::{Config};
 use minidb::ddl::{CreateDatabaseCommand, CreateTableCommand};
-use minidb::dml::{InsertIntoCommnad, SelectFromCommnad};
+use minidb::dml::{InsertIntoCommnad, SelectFromCommnad, CountCommnad};
 use minidb::tuple::{KeyValueBuilder};
 use minidb::init::{InitCommand};
 
@@ -61,6 +61,14 @@ fn main() {
                                        .required(true)
                                        .takes_value(true))
                                   .arg(Arg::with_name("value")
+                                       .required(true)
+                                       .takes_value(true)))
+                          .subcommand(
+                              SubCommand::with_name("select_from_count")
+                                  .arg(Arg::with_name("dbname")
+                                       .required(true)
+                                       .takes_value(true))
+                                  .arg(Arg::with_name("tablename")
                                        .required(true)
                                        .takes_value(true)))
                           .get_matches();
@@ -133,6 +141,19 @@ fn main() {
             let value = sub_m.value_of("value").unwrap();
 
             match select_from.execute(&dbname, &tablename, key, value) {
+                Ok(_) => {},
+                Err(msg) => {
+                    println!("Error: '{}'", msg);
+                    ::std::process::exit(1);
+                }
+            }
+        },
+        ("select_from_count", Some(sub_m)) => {
+            let dbname = sub_m.value_of("dbname").unwrap();
+            let tablename = sub_m.value_of("tablename").unwrap();
+            let count = CountCommnad::new(config.clone());
+
+            match count.execute(&dbname, &tablename) {
                 Ok(_) => {},
                 Err(msg) => {
                     println!("Error: '{}'", msg);

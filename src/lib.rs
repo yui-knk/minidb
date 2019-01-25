@@ -23,4 +23,5 @@ pub mod page;
 pub mod tuple;
 pub mod node_seqscan;
 pub mod node_insert;
+pub mod node_agg;
 pub mod off;
