@@ -67,7 +67,20 @@ impl SelectFromCommnad {
         let relation = rmgr.get_relation(db_oid, table_oid);
         let mut bm = BufferManager::new(1, self.config.clone());
         let mut scan = ScanState::new(relation, &rm);
-        scan.exec_scan(&mut bm);
+
+        loop {
+            let opt = scan.exec_scan(&mut bm);
+
+            match opt {
+                Some(slot) => {
+                    for i in 0..(slot.attrs_count()) {
+                        let ty = slot.get_column(i);
+                        println!("{:?}", ty.as_string());
+                    }
+                },
+                None => break
+            }
+        }
 
         Ok(())
     }

@@ -77,20 +77,8 @@ impl<'a> ScanState<'a> {
     }
 
     // ExecScan in pg.
-    pub fn exec_scan(&mut self, bufmrg: &mut BufferManager) {
-        loop {
-            let opt = self.seq_next(bufmrg);
-
-            match opt {
-                Some(slot) => {
-                    for i in 0..(slot.attrs_count()) {
-                        let ty = slot.get_column(i);
-                        println!("{:?}", ty.as_string());
-                    }
-                },
-                None => break
-            }
-        }
+    pub fn exec_scan(&mut self, bufmrg: &mut BufferManager) -> Option<&TupleTableSlot> {
+        self.seq_next(bufmrg)
     }
 
     // SeqNext in pg.
