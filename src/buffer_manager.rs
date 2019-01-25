@@ -18,6 +18,13 @@ pub enum Buffer {
     Buffer(usize)
 }
 
+fn unwrap_buffer_id(buffer_id: Buffer) -> usize {
+    match buffer_id {
+        Buffer::Buffer(buf) => buf,
+        Buffer::InvalidBuffer => panic!("InvalidBuffer")
+    }
+}
+
 // Block number of a data file (start with 0)
 pub type BlockNum = u32;
 const InitialBlockNum: BlockNum = 0;
@@ -56,17 +63,7 @@ pub struct BufferManager {
 
 impl Drop for BufferManager {
     fn drop(&mut self) {
-        let len = self.buffer_descriptors.len();
-
-        for i in 0..len {
-            let page = &self.pages[i];
-            let descriptor = &self.buffer_descriptors[i];
-            let rnode = &descriptor.tag.rnode;
-            let block_num = descriptor.tag.block_num;
-
-            let mut relation_data = self.smgr.smgropen(&rnode);
-            relation_data.borrow_mut().mdwrite(block_num, page.header_pointer());
-        }
+        self.flush_buffers();
     }
 }
 
@@ -212,10 +209,35 @@ impl BufferManager {
         buffer
     }
 
+    // `FlushBuffer` in pg.
+    fn flush_buffer(&mut self, buffer_id: Buffer) {
+        let buf = unwrap_buffer_id(buffer_id);
+        self.flush_buffer_with_index(buf);
+    }
+
+    fn flush_buffer_with_index(&mut self, i: usize) {
+        let page = &self.pages[i];
+        let descriptor = &self.buffer_descriptors[i];
+        let rnode = &descriptor.tag.rnode;
+        let block_num = descriptor.tag.block_num;
+
+        let mut relation_data = self.smgr.smgropen(&rnode);
+        relation_data.borrow_mut().mdwrite(block_num, page.header_pointer());
+    }
+
+    fn flush_buffers(&mut self) {
+        let len = self.buffer_descriptors.len();
+
+        for i in 0..len {
+            self.flush_buffer_with_index(i);
+        }
+    }
+
     fn get_page_free_space(&self, buffer_id: Buffer) -> usize {
         self.get_page(buffer_id).page_get_free_space()
     }
 
+    // See `BufHdrGetBlock` in pg.
     pub fn get_page(&self, buffer_id: Buffer) -> &Page {
         match buffer_id {
             Buffer::Buffer(buf) => &self.pages[buf],
