@@ -25,9 +25,9 @@ fn unwrap_buffer_id(buffer_id: Buffer) -> usize {
     }
 }
 
+// block.h in pg.
 // Block number of a data file (start with 0)
 pub type BlockNum = u32;
-const InitialBlockNum: BlockNum = 0;
 pub const InvalidBlockNumber: BlockNum = 0xFFFFFFFF;
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
