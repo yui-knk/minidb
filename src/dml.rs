@@ -59,7 +59,7 @@ impl SelectFromCommnad {
         }
     }
 
-    pub fn execute(&self, dbname: &str, table_name: &str, key: &str, value: &str) -> Result<(), String> {
+    pub fn execute(&self, dbname: &str, table_name: &str) -> Result<(), String> {
         let db: RecordManeger<MiniDatabaseRecord> = RecordManeger::mini_database_rm(&self.config);
         let db_oid = db.find_mini_database_oid(dbname)
                        .expect(&format!("{} database should be defined.", dbname));

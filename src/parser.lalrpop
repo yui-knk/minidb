@@ -1,0 +1,94 @@
+use ast::{Stmt, Expr};
+
+grammar;
+
+pub Statement: Stmt = {
+    // SELECT expr FROM dbname "." tablename
+    Select_T <e:Expression> From_T <fi: From_Item> => {
+        Stmt::SelectStmt(e, fi.0, fi.1)
+    },
+    // INSERT INTO dbname "." tablename "(" keys ")" VALUES "(" values ")"
+    Insert_T Into_T <fi: From_Item> "(" <li1:Ident_List> ")" Values_T "(" <li2:Value_List> ")" => {
+        Stmt::InsertStmt(fi.0, fi.1, li1, li2)
+    },
+}
+
+// expr: "*" | count()
+Expression: Box<Expr> = {
+    "*" => Box::new(Expr::All),
+    "count()" => Box::new(Expr::Count),
+}
+
+Select_T: () = {
+    "select",
+    "SELECT",
+}
+
+Insert_T: () = {
+    "insert",
+    "INSERT",
+}
+
+Into_T: () = {
+    "into",
+    "INTO",
+}
+
+Count_T: () = {
+    "count",
+    "COUNT",
+}
+
+From_T: () = {
+    "from",
+    "FROM",
+}
+
+Values_T: () = {
+    "values",
+    "VALUES",
+}
+
+Comma: () = {
+    ",",
+}
+
+From_Item: (String, String) = {
+    <i1:Ident> "." <i2:Ident> => (i1, i2),
+}
+
+Ident_List: Vec<String> = {
+    <il:Ident_List> Comma <i:Ident> => {
+        let mut il = il;
+        il.push(i);
+        il
+    },
+    <i:Ident> => vec![i],
+}
+
+Value_List: Vec<String> = {
+    <vl:Value_List> Comma <v:Value> => {
+        let mut vl = vl;
+        vl.push(v);
+        vl
+    },
+    <v:Value> => vec![v],
+}
+
+Value: String = {
+    <s:NumString> => s,
+    <s:StringLiteral> => s,
+}
+
+NumString: String = {
+    <s:r"[0-9]+"> => s.to_string(),
+}
+
+StringLiteral: String = {
+    <s:r#""[a-zA-Z][a-zA-Z0-9]*""#> => s.to_string(),
+    <s:r"'[a-zA-Z][a-zA-Z0-9]*'"> => s.to_string(),
+}
+
+Ident: String = {
+    <s:r"[a-zA-Z][a-zA-Z0-9]*"> => s.to_string(),
+}

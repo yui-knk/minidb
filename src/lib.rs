@@ -6,6 +6,10 @@ extern crate errno;
 extern crate log;
 extern crate simple_logger;
 
+#[macro_use]
+extern crate lalrpop_util;
+
+pub mod ast;
 pub mod config;
 
 pub mod catalog {
@@ -28,3 +32,4 @@ pub mod node_seqscan;
 pub mod node_insert;
 pub mod node_agg;
 pub mod off;
+pub mod spi;

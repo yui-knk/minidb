@@ -22,16 +22,16 @@ create_table:
 	cargo run -- --base_dir $(BASE_DIR) create_table $(DBNAME) $(TABLENAME)
 
 insert_into:
-	cargo run -- --base_dir $(BASE_DIR) insert_into $(DBNAME) $(TABLENAME) 1 12
-	cargo run -- --base_dir $(BASE_DIR) insert_into $(DBNAME) $(TABLENAME) 2 13
-	cargo run -- --base_dir $(BASE_DIR) insert_into $(DBNAME) $(TABLENAME) 3 12
-	cargo run -- --base_dir $(BASE_DIR) insert_into $(DBNAME) $(TABLENAME) 4 20
-	cargo run -- --base_dir $(BASE_DIR) insert_into $(DBNAME) $(TABLENAME) 5 21
+	cargo run -- --base_dir $(BASE_DIR) execute "insert into $(DBNAME).$(TABLENAME) (id, age) values (1, 12)"
+	cargo run -- --base_dir $(BASE_DIR) execute "insert into $(DBNAME).$(TABLENAME) (id, age) values (2, 13)"
+	cargo run -- --base_dir $(BASE_DIR) execute "insert into $(DBNAME).$(TABLENAME) (id, age) values (3, 12)"
+	cargo run -- --base_dir $(BASE_DIR) execute "insert into $(DBNAME).$(TABLENAME) (id, age) values (4, 20)"
+	cargo run -- --base_dir $(BASE_DIR) execute "insert into $(DBNAME).$(TABLENAME) (id, age) values (5, 21)"
 
 insert_into2: insert_into insert_into insert_into insert_into insert_into
 
 select_from:
-	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) select_from $(DBNAME) $(TABLENAME) 1 12
+	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) execute "select * from $(DBNAME).$(TABLENAME)"
 
 count:
-	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) select_from_count $(DBNAME) $(TABLENAME)
+	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) execute "select count() from $(DBNAME).$(TABLENAME)"

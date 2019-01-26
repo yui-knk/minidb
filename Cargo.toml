@@ -3,6 +3,9 @@ name = "minidb"
 version = "0.1.0"
 authors = ["yui-knk <spiketeika@gmail.com>"]
 
+[build-dependencies]
+lalrpop = "*"
+
 [dependencies]
 clap = "*"
 libc = "*"
@@ -11,3 +14,6 @@ byteorder = "*"
 errno = "*"
 log = "*"
 simple_logger = "*"
+lalrpop-util = "*"
+regex = "*"
+

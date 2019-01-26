@@ -9,9 +9,8 @@ use clap::{Arg, App, SubCommand};
 use minidb::oid_manager::OidManager;
 use minidb::config::{Config};
 use minidb::ddl::{CreateDatabaseCommand, CreateTableCommand};
-use minidb::dml::{InsertIntoCommnad, SelectFromCommnad, CountCommnad};
-use minidb::tuple::{KeyValueBuilder};
 use minidb::init::{InitCommand};
+use minidb::spi::{Executor};
 
 fn main() {
     let matches = App::new("minidb")
@@ -41,39 +40,8 @@ fn main() {
                                        .required(true)
                                        .takes_value(true)))
                           .subcommand(
-                              SubCommand::with_name("insert_into")
-                                  .arg(Arg::with_name("dbname")
-                                       .required(true)
-                                       .takes_value(true))
-                                  .arg(Arg::with_name("tablename")
-                                       .required(true)
-                                       .takes_value(true))
-                                  .arg(Arg::with_name("id")
-                                       .required(true)
-                                       .takes_value(true))
-                                  .arg(Arg::with_name("age")
-                                       .required(true)
-                                       .takes_value(true)))
-                          .subcommand(
-                              SubCommand::with_name("select_from")
-                                  .arg(Arg::with_name("dbname")
-                                       .required(true)
-                                       .takes_value(true))
-                                  .arg(Arg::with_name("tablename")
-                                       .required(true)
-                                       .takes_value(true))
-                                  .arg(Arg::with_name("key")
-                                       .required(true)
-                                       .takes_value(true))
-                                  .arg(Arg::with_name("value")
-                                       .required(true)
-                                       .takes_value(true)))
-                          .subcommand(
-                              SubCommand::with_name("select_from_count")
-                                  .arg(Arg::with_name("dbname")
-                                       .required(true)
-                                       .takes_value(true))
-                                  .arg(Arg::with_name("tablename")
+                              SubCommand::with_name("execute")
+                                  .arg(Arg::with_name("query")
                                        .required(true)
                                        .takes_value(true)))
                           .get_matches();
@@ -136,45 +104,11 @@ fn main() {
                 }
             }
         },
-        ("insert_into", Some(sub_m)) => {
-            let dbname = sub_m.value_of("dbname").unwrap();
-            let tablename = sub_m.value_of("tablename").unwrap();
-            let id = sub_m.value_of("id").unwrap();
-            let age = sub_m.value_of("age").unwrap();
-            let mut builder = KeyValueBuilder::new();
-            let insert_into = InsertIntoCommnad::new(config);
-            builder.add_pair("id".to_string(), id.to_string());
-            builder.add_pair("age".to_string(), age.to_string());
+        ("execute", Some(sub_m)) => {
+            let query = sub_m.value_of("query").unwrap();
+            let executor = Executor::new(config.clone());
 
-            match insert_into.execute(&dbname, &tablename, builder.build()) {
-                Ok(_) => {},
-                Err(msg) => {
-                    println!("Error: '{}'", msg);
-                    ::std::process::exit(1);
-                }
-            }
-        },
-        ("select_from", Some(sub_m)) => {
-            let dbname = sub_m.value_of("dbname").unwrap();
-            let tablename = sub_m.value_of("tablename").unwrap();
-            let select_from = SelectFromCommnad::new(config.clone());
-            let key = sub_m.value_of("key").unwrap();
-            let value = sub_m.value_of("value").unwrap();
-
-            match select_from.execute(&dbname, &tablename, key, value) {
-                Ok(_) => {},
-                Err(msg) => {
-                    println!("Error: '{}'", msg);
-                    ::std::process::exit(1);
-                }
-            }
-        },
-        ("select_from_count", Some(sub_m)) => {
-            let dbname = sub_m.value_of("dbname").unwrap();
-            let tablename = sub_m.value_of("tablename").unwrap();
-            let count = CountCommnad::new(config.clone());
-
-            match count.execute(&dbname, &tablename) {
+            match executor.execute_query(query) {
                 Ok(_) => {},
                 Err(msg) => {
                     println!("Error: '{}'", msg);
