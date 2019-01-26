@@ -1,6 +1,7 @@
 BASE_DIR=/tmp/minidb
 DBNAME=db1
 TABLENAME=table1
+LOGLEVEL=debug
 
 .PHONY: setup test_run init_db create_db create_table insert_into insert_into2 select_from count
 
@@ -30,7 +31,7 @@ insert_into:
 insert_into2: insert_into insert_into insert_into insert_into insert_into
 
 select_from:
-	cargo run -- --base_dir $(BASE_DIR) select_from $(DBNAME) $(TABLENAME) 1 12
+	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) select_from $(DBNAME) $(TABLENAME) 1 12
 
 count:
-	cargo run -- --base_dir $(BASE_DIR) select_from_count $(DBNAME) $(TABLENAME)
+	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) select_from_count $(DBNAME) $(TABLENAME)
