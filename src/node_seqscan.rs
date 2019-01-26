@@ -56,7 +56,8 @@ impl<'a> ScanState<'a> {
         let rnode = &relation.borrow().smgr_rnode;
         let attrs = rm.attributes_clone(rnode.db_oid, rnode.table_oid);
         let attrs_len = attrs.iter().fold(0, |acc, attr| acc + attr.len) as u32;
-        let tuple = HeapTupleData::new(attrs_len);
+        let mut tuple = HeapTupleData::new(attrs_len);
+        ::tuple::item_pointer_set_invalid(&mut tuple.t_self);
         let rs_nblocks = bufmrg.relation_get_number_of_blocks(&relation.borrow());
 
         let scan_desc = HeapScanDescData {
@@ -133,9 +134,7 @@ impl<'a> ScanState<'a> {
 
                 let dp = bufmrg.get_page(scan_desc.rs_cbuf);
                 let mut t_self = ItemPointerData::new();
-                t_self.ip_blkid = dp.get_item(lineoff);
-                t_self.ip_posid = lineoff;
-
+                ::tuple::item_pointer_set(&mut t_self, scan_desc.rs_cblock, lineoff);
                 scan_desc.rs_ctup.load_without_len(dp.get_entry_pointer(lineoff).unwrap(), t_self);
                 return
             }

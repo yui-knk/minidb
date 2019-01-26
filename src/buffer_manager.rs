@@ -29,6 +29,9 @@ fn unwrap_buffer_id(buffer_id: Buffer) -> usize {
 // Block number of a data file (start with 0)
 pub type BlockNumber = u32;
 pub const InvalidBlockNumber: BlockNumber = 0xFFFFFFFF;
+// BlockIdData in pg (which is pair of uint16).
+pub type BlockIdData = BlockNumber;
+
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct RelFileNode {

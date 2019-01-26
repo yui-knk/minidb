@@ -1,7 +1,7 @@
 use catalog::mini_attribute::MiniAttributeRecord;
-use off::{OffsetNumber, FirstOffsetNumber};
+use off::{OffsetNumber, FirstOffsetNumber, InvalidOffsetNumber};
 use ty::{TypeValue, load_type_value, build_type_value};
-use page::{ItemIdData};
+use buffer_manager::{BlockIdData, BlockNumber, InvalidBlockNumber};
 
 pub struct KeyValue<'a> {
     key: &'a str,
@@ -33,9 +33,20 @@ impl<'a> KeyValueBuilder<'a> {
 #[derive(Debug, Clone)]
 pub struct ItemPointerData
 {
-    // Memo: BlockIdData in pg.
-    pub ip_blkid: ItemIdData,
+    pub ip_blkid: BlockIdData,
     pub ip_posid: OffsetNumber,
+}
+
+// ItemPointerSetInvalid in pg.
+pub fn item_pointer_set_invalid(pointer: &mut ItemPointerData) {
+    pointer.ip_blkid = InvalidBlockNumber;
+    pointer.ip_posid = InvalidOffsetNumber;
+}
+
+// ItemPointerSet in pg.
+pub fn item_pointer_set(pointer: &mut ItemPointerData, block_number: BlockNumber, off_num: OffsetNumber) {
+    pointer.ip_blkid = block_number;
+    pointer.ip_posid = off_num;
 }
 
 
@@ -252,7 +263,7 @@ impl Drop for HeapTupleHeaderData {
 
 impl ItemPointerData {
     pub fn new() -> ItemPointerData {
-        let ip_blkid = ItemIdData::new(0);
+        let ip_blkid = 0;
         let ip_posid = FirstOffsetNumber;
 
         ItemPointerData {
