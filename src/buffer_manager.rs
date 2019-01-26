@@ -67,6 +67,15 @@ impl Drop for BufferManager {
     }
 }
 
+macro_rules! ensure_pages_length {
+    ($self:ident) => (
+        if $self.pages.len() > N_BUFFERS {
+            warn!("Page length ({}) exceeds N_BUFFERS ({})", $self.pages.len(), N_BUFFERS);
+            // panic!("Page length ({}) exceeds N_BUFFERS ({})", self.pages.len(), N_BUFFERS);
+        }
+    )
+}
+
 impl BufferManager {
     pub fn new(size: usize, config: Rc<Config>) -> BufferManager {
         BufferManager {
@@ -157,8 +166,6 @@ impl BufferManager {
     //
     // This method create new page.
     fn read_buffer_new_page(&mut self, relation: &RelationData) -> (Buffer, BlockNum) {
-        self.ensure_pages_length();
-
         let mut page = Page::new(DEFAULT_BLOCK_SIZE);
         page.fill_with_zero(DEFAULT_BLOCK_SIZE as usize);
         let mut rd_smgr = self.smgr.relation_smgropen(&relation).borrow_mut();
@@ -185,6 +192,7 @@ impl BufferManager {
             buffer
         });
 
+        ensure_pages_length!(self);
         debug!("page is pushed (len: {})", self.pages.len());
 
         (buffer, block_num)
@@ -196,8 +204,6 @@ impl BufferManager {
     // determine which block should be loaded, but the block info is stored in
     // Relation (SMgrRelationData).
     pub fn read_buffer(&mut self, relation: &RelationData, block_num: BlockNum) -> Buffer {
-        self.ensure_pages_length();
-
         let page = Page::new(DEFAULT_BLOCK_SIZE);
         let mut rd_smgr = self.smgr.relation_smgropen(&relation).borrow_mut();
 
@@ -220,16 +226,10 @@ impl BufferManager {
             buffer
         });
 
+        ensure_pages_length!(self);
         debug!("page is pushed (len: {})", self.pages.len());
 
         buffer
-    }
-
-    fn ensure_pages_length(&self) {
-        if self.pages.len() > N_BUFFERS {
-            warn!("Page length ({}) exceeds N_BUFFERS ({})", self.pages.len(), N_BUFFERS);
-            // panic!("Page length ({}) exceeds N_BUFFERS ({})", self.pages.len(), N_BUFFERS);
-        }
     }
 
     // `FlushBuffer` in pg.
