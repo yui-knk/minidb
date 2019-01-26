@@ -108,10 +108,11 @@ impl<'a> ScanState<'a> {
         !scan_desc.rs_finished
     }
 
+    // heapgettup in pg.
     fn heapgettup(&mut self, bufmrg: &mut BufferManager) {
         let scan_desc = &mut self.ss_currentScanDesc;
 
-        let lineoff = if !scan_desc.rs_inited {
+        let mut lineoff = if !scan_desc.rs_inited {
             let page = scan_desc.rs_startblock;
             let buf = bufmrg.read_buffer(&scan_desc.rs_rd.borrow(), page);
             scan_desc.rs_cbuf = buf;
@@ -122,29 +123,41 @@ impl<'a> ScanState<'a> {
             scan_desc.rs_ctup.get_item_offset_number() + 1
         };
 
-        // heapgettup in pg.
-        let dp = bufmrg.get_page(scan_desc.rs_cbuf);
-        let lines = dp.page_get_max_offset_number();
+        let lines = bufmrg.get_page(scan_desc.rs_cbuf).page_get_max_offset_number();
         let mut linesleft = lines - lineoff;
 
         loop {
             // Iterate a page.
             while linesleft > 0 {
                 println!("linesleft: {:?}", linesleft);
+                let dp = bufmrg.get_page(scan_desc.rs_cbuf);
                 let mut t_self = ItemPointerData::new();
                 t_self.ip_blkid = dp.get_item(lineoff);
                 t_self.ip_posid = lineoff;
 
                 scan_desc.rs_ctup.load_without_len(dp.get_entry_pointer(lineoff).unwrap(), t_self);
-                linesleft = linesleft - 1;
-                // TODO: try to get next page
                 return
             }
 
             // if we get here, it means we've exhausted the items on this page and
             // it's time to move to the next.
-            scan_desc.rs_finished = true;
-            return
+
+            if scan_desc.rs_cblock + 1 >= scan_desc.rs_nblocks {
+                scan_desc.rs_finished = true;
+                return
+            }
+
+            // In pg, heapgetpage update `rs_cbuf`, `rs_cblock`
+            {
+                let page = scan_desc.rs_cblock + 1;
+                scan_desc.rs_cblock = page;
+                let buf = bufmrg.read_buffer(&scan_desc.rs_rd.borrow(), page);
+                scan_desc.rs_cbuf = buf;
+                let dp = bufmrg.get_page(scan_desc.rs_cbuf);
+                lineoff = FirstOffsetNumber;
+                let lines = dp.page_get_max_offset_number();
+                linesleft = lines - lineoff;
+            }
         }
     }
 }
