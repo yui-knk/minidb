@@ -185,6 +185,8 @@ impl BufferManager {
             buffer
         });
 
+        debug!("page is pushed (len: {})", self.pages.len());
+
         (buffer, block_num)
     }
 
@@ -217,6 +219,8 @@ impl BufferManager {
         self.buffer_hash.entry(tag).or_insert_with(|| {
             buffer
         });
+
+        debug!("page is pushed (len: {})", self.pages.len());
 
         buffer
     }
