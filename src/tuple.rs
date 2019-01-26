@@ -3,28 +3,28 @@ use off::{OffsetNumber, FirstOffsetNumber};
 use ty::{TypeValue, load_type_value, build_type_value};
 use page::{ItemIdData};
 
-pub struct KeyValue {
-    key: String,
-    value: String,
+pub struct KeyValue<'a> {
+    key: &'a str,
+    value: &'a str,
 }
 
-pub struct KeyValueBuilder {
-    key_values: Vec<KeyValue>,
+pub struct KeyValueBuilder<'a> {
+    key_values: Vec<KeyValue<'a>>,
 }
 
-impl KeyValueBuilder {
-    pub fn new() -> KeyValueBuilder {
+impl<'a> KeyValueBuilder<'a> {
+    pub fn new() -> KeyValueBuilder<'a> {
         KeyValueBuilder { key_values: Vec::new() }
     }
 
-    pub fn add_pair(&mut self, key: String, value: String) {
+    pub fn add_pair(&mut self, key: &'a str, value: &'a str) {
         self.key_values.push(KeyValue {
             key: key,
             value: value,
         })
     }
 
-    pub fn build(self) -> Vec<KeyValue> {
+    pub fn build(self) -> Vec<KeyValue<'a>> {
         self.key_values
     }
 }

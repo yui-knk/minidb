@@ -41,8 +41,7 @@ impl Executor {
                 let mut builder = KeyValueBuilder::new();
 
                 for (k, v) in keys.iter().zip(values.iter()) {
-                    // TODO: Change to str ref
-                    builder.add_pair(k.to_string(), v.to_string())
+                    builder.add_pair(k, v)
                 }
 
                 let insert_into = InsertIntoCommnad::new(self.config.clone());
