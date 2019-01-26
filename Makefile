@@ -1,7 +1,7 @@
 BASE_DIR=/tmp/minidb
 DBNAME=db1
 TABLENAME=table1
-LOGLEVEL=debug
+LOGLEVEL=warn
 
 .PHONY: setup test_run init_db create_db create_table insert_into insert_into2 select_from count
 
