@@ -87,7 +87,10 @@ fn main() {
       "info"  => log::Level::Info,
       "debug" => log::Level::Debug,
       "trace" => log::Level::Trace,
-      _ => log::Level::Trace
+      _ => {
+        println!("'{}' is invalid. 'trace' is used as log level", log_level);
+        log::Level::Trace
+      }
     };
 
     simple_logger::init_with_level(level).unwrap();
