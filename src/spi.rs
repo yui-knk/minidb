@@ -38,6 +38,8 @@ impl Executor {
                 }
             },
             Stmt::InsertStmt(dbname, tablename, keys, value_lists) => {
+                // TODO: Implement nodeValuesscan and change InsertIntoCommnad
+                //       to fetch all records.
                 for values in value_lists.iter() {
                     let mut builder = KeyValueBuilder::new();
 
