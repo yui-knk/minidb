@@ -129,7 +129,8 @@ impl<'a> ScanState<'a> {
         loop {
             // Iterate a page.
             while linesleft > 0 {
-                println!("linesleft: {:?}", linesleft);
+                debug!("linesleft: {}", linesleft);
+
                 let dp = bufmrg.get_page(scan_desc.rs_cbuf);
                 let mut t_self = ItemPointerData::new();
                 t_self.ip_blkid = dp.get_item(lineoff);
@@ -157,6 +158,8 @@ impl<'a> ScanState<'a> {
                 lineoff = FirstOffsetNumber;
                 let lines = dp.page_get_max_offset_number();
                 linesleft = lines - lineoff;
+
+                debug!("Next page is loaded: {}", page);
             }
         }
     }

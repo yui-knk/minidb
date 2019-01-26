@@ -2,6 +2,9 @@ extern crate libc;
 extern crate tempfile;
 extern crate byteorder;
 extern crate errno;
+#[macro_use]
+extern crate log;
+extern crate simple_logger;
 
 pub mod config;
 

@@ -20,6 +20,11 @@ fn main() {
                                .required(true)
                                .value_name("DIR")
                                .takes_value(true))
+                          .arg(Arg::with_name("log_level")
+                               .long("log_level")
+                               .required(false)
+                               .default_value("warn")
+                               .takes_value(true))
                           .subcommand(
                               SubCommand::with_name("init"))
                           .subcommand(
@@ -74,6 +79,19 @@ fn main() {
                           .get_matches();
 
     let base_dir = matches.value_of("base_dir").unwrap();
+    let log_level = matches.value_of("log_level").unwrap();
+
+    let level = match log_level {
+      "error" => log::Level::Error,
+      "warn"  => log::Level::Warn,
+      "info"  => log::Level::Info,
+      "debug" => log::Level::Debug,
+      "trace" => log::Level::Trace,
+      _ => log::Level::Trace
+    };
+
+    simple_logger::init_with_level(level).unwrap();
+
     let config = Rc::new(Config::new(base_dir.to_string()));
 
     match matches.subcommand() {
