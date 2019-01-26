@@ -221,7 +221,7 @@ impl BufferManager {
         let rnode = &descriptor.tag.rnode;
         let block_num = descriptor.tag.block_num;
 
-        let mut relation_data = self.smgr.smgropen(&rnode);
+        let relation_data = self.smgr.smgropen(&rnode);
         relation_data.borrow_mut().mdwrite(block_num, page.header_pointer());
     }
 
