@@ -48,15 +48,20 @@ struct HeapScanDescData<'a> {
 
 impl<'a> ScanState<'a> {
     // `initscan` in pg.
-    pub fn new(relation: &'a RefCell<RelationData>, rm: &RecordManeger<MiniAttributeRecord>) -> ScanState<'a> {
+    pub fn new(
+        relation: &'a RefCell<RelationData>,
+        rm: &RecordManeger<MiniAttributeRecord>,
+        bufmrg: &mut BufferManager
+    ) -> ScanState<'a> {
         let rnode = &relation.borrow().smgr_rnode;
         let attrs = rm.attributes_clone(rnode.db_oid, rnode.table_oid);
         let attrs_len = attrs.iter().fold(0, |acc, attr| acc + attr.len) as u32;
         let tuple = HeapTupleData::new(attrs_len);
+        let rs_nblocks = bufmrg.relation_get_number_of_blocks(&relation.borrow());
 
         let scan_desc = HeapScanDescData {
             rs_rd: relation,
-            rs_nblocks: 1, // TODO: use RelationGetNumberOfBlocks
+            rs_nblocks: rs_nblocks,
             rs_startblock: 0,
             rs_numblocks: InvalidBlockNumber,
             rs_inited: false,
@@ -132,9 +137,12 @@ impl<'a> ScanState<'a> {
 
                 scan_desc.rs_ctup.load_without_len(dp.get_entry_pointer(lineoff).unwrap(), t_self);
                 linesleft = linesleft - 1;
+                // TODO: try to get next page
                 return
             }
 
+            // if we get here, it means we've exhausted the items on this page and
+            // it's time to move to the next.
             scan_desc.rs_finished = true;
             return
         }
