@@ -3,7 +3,7 @@ use std::cell::RefCell;
 
 use catalog::catalog::RecordManeger;
 use catalog::mini_attribute::MiniAttributeRecord;
-use buffer_manager::{Buffer, BlockNum, BufferManager, InvalidBlockNumber};
+use buffer_manager::{Buffer, BlockNumber, BufferManager, InvalidBlockNumber};
 use tuple::{TupleTableSlot, HeapTupleData, ItemPointerData};
 use off::{FirstOffsetNumber};
 use storage_manager::{RelationData};
@@ -28,11 +28,11 @@ struct HeapScanDescData<'a> {
     rs_rd: &'a RefCell<RelationData>,
 
     // total number of blocks in rel
-    rs_nblocks: BlockNum,
+    rs_nblocks: BlockNumber,
     // block # to start at
-    rs_startblock: BlockNum,
+    rs_startblock: BlockNumber,
     // max number of blocks to scan
-    rs_numblocks: BlockNum,
+    rs_numblocks: BlockNumber,
 
     // false = scan not init'd yet
     rs_inited: bool,
@@ -41,7 +41,7 @@ struct HeapScanDescData<'a> {
     // current tuple in scan, if any
     rs_ctup: Box<HeapTupleData>,
     // current block # in scan, if any
-    rs_cblock: BlockNum,
+    rs_cblock: BlockNumber,
     // current buffer in scan, if any
     rs_cbuf: Buffer,
 }

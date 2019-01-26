@@ -7,7 +7,7 @@ use std::cell::RefCell;
 
 use errno::{Errno, errno, set_errno};
 
-use buffer_manager::{RelFileNode, BlockNum, InvalidBlockNumber};
+use buffer_manager::{RelFileNode, BlockNumber, InvalidBlockNumber};
 use config::{Config, DEFAULT_BLOCK_SIZE};
 use oid_manager::{Oid, DUMMY_OID};
 
@@ -26,7 +26,7 @@ pub struct SMgrRelationData {
     pub smgr_rnode: RelFileNode,
     file: Option<File>,
     // current insertion target block
-    pub smgr_targblock: BlockNum,
+    pub smgr_targblock: BlockNumber,
 }
 
 pub struct StorageManager {
@@ -72,7 +72,7 @@ impl RelationManager {
 }
 
 impl SMgrRelationData {
-    pub fn mdread(&mut self, block_num: BlockNum, buffer: *mut libc::c_void) {
+    pub fn mdread(&mut self, block_num: BlockNumber, buffer: *mut libc::c_void) {
         let s = DEFAULT_BLOCK_SIZE as u32;
         self.mdopen();
 
@@ -103,7 +103,7 @@ impl SMgrRelationData {
         }
     }
 
-    pub fn mdwrite(&mut self, block_num: BlockNum, buffer: *const libc::c_void) {
+    pub fn mdwrite(&mut self, block_num: BlockNumber, buffer: *const libc::c_void) {
         let s = DEFAULT_BLOCK_SIZE as u32;
         self.mdopen();
 
@@ -134,13 +134,13 @@ impl SMgrRelationData {
         }
     }
 
-    pub fn mdextend(&mut self, block_num: BlockNum, buffer: *const libc::c_void) {
+    pub fn mdextend(&mut self, block_num: BlockNumber, buffer: *const libc::c_void) {
         let s = DEFAULT_BLOCK_SIZE as u32;
         self.mdopen();
 
         let mut f = self.file.as_ref().unwrap();
 
-        // Seek to start of the new page (BlockNum is 0-origin).
+        // Seek to start of the new page (BlockNumber is 0-origin).
         let seekpos = s * block_num;
         if f.seek(SeekFrom::Start(seekpos.into())).unwrap() != seekpos.into() {
             panic!("Failed to seek file. '{}'", seekpos);
@@ -166,11 +166,11 @@ impl SMgrRelationData {
         }
     }
 
-    pub fn mdnblocks(&mut self) -> BlockNum {
+    pub fn mdnblocks(&mut self) -> BlockNumber {
         self.mdopen();
         let mut f = self.file.as_ref().unwrap();
         let len = f.seek(SeekFrom::End(0)).unwrap();
-        (len / DEFAULT_BLOCK_SIZE as u64) as BlockNum
+        (len / DEFAULT_BLOCK_SIZE as u64) as BlockNumber
     }
 
     fn mdopen(&mut self) {

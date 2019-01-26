@@ -27,8 +27,8 @@ fn unwrap_buffer_id(buffer_id: Buffer) -> usize {
 
 // block.h in pg.
 // Block number of a data file (start with 0)
-pub type BlockNum = u32;
-pub const InvalidBlockNumber: BlockNum = 0xFFFFFFFF;
+pub type BlockNumber = u32;
+pub const InvalidBlockNumber: BlockNumber = 0xFFFFFFFF;
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct RelFileNode {
@@ -40,7 +40,7 @@ pub struct RelFileNode {
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
 struct BufferTag {
     rnode: RelFileNode,
-    block_num: BlockNum,
+    block_num: BlockNumber,
 }
 
 #[derive(Debug)]
@@ -150,14 +150,14 @@ impl BufferManager {
     }
 
     // `BufferGetBlockNumber` in pg.
-    fn buffer_get_block_number(&self, buffer :Buffer) -> BlockNum {
+    fn buffer_get_block_number(&self, buffer :Buffer) -> BlockNumber {
         let buf = unwrap_buffer_id(buffer);
         let tag = &self.buffer_descriptors[buf].tag;
         tag.block_num
     }
 
     // `RelationGetNumberOfBlocks` in pg.
-    pub fn relation_get_number_of_blocks(&mut self, relation: &RelationData) -> BlockNum {
+    pub fn relation_get_number_of_blocks(&mut self, relation: &RelationData) -> BlockNumber {
         let mut rd_smgr = self.smgr.relation_smgropen(relation).borrow_mut();
         rd_smgr.mdnblocks()
     }
@@ -165,7 +165,7 @@ impl BufferManager {
     // `blockNum == P_NEW` case of `ReadBuffer_common` in pg.
     //
     // This method create new page.
-    fn read_buffer_new_page(&mut self, relation: &RelationData) -> (Buffer, BlockNum) {
+    fn read_buffer_new_page(&mut self, relation: &RelationData) -> (Buffer, BlockNumber) {
         let mut page = Page::new(DEFAULT_BLOCK_SIZE);
         page.fill_with_zero(DEFAULT_BLOCK_SIZE as usize);
         let mut rd_smgr = self.smgr.relation_smgropen(&relation).borrow_mut();
@@ -203,7 +203,7 @@ impl BufferManager {
     // This should recieve Relation instead of RelFileNode because we should
     // determine which block should be loaded, but the block info is stored in
     // Relation (SMgrRelationData).
-    pub fn read_buffer(&mut self, relation: &RelationData, block_num: BlockNum) -> Buffer {
+    pub fn read_buffer(&mut self, relation: &RelationData, block_num: BlockNumber) -> Buffer {
         let page = Page::new(DEFAULT_BLOCK_SIZE);
         let mut rd_smgr = self.smgr.relation_smgropen(&relation).borrow_mut();
 
@@ -275,7 +275,7 @@ impl BufferManager {
         }
     }
     // 
-    // pub fn read_buffer_extended(&mut self, block_num: BlockNum) -> Buffer {
+    // pub fn read_buffer_extended(&mut self, block_num: BlockNumber) -> Buffer {
     // }
 }
 
