@@ -141,8 +141,17 @@ impl BufferManager {
     }
 
     // `BufferGetBlockNumber` in pg.
-    // fn buffer_get_block_number(&self, ) {
-    // }
+    fn buffer_get_block_number(&self, buffer :Buffer) -> BlockNum {
+        let buf = unwrap_buffer_id(buffer);
+        let tag = &self.buffer_descriptors[buf].tag;
+        tag.block_num
+    }
+
+    // `RelationGetNumberOfBlocks` in pg.
+    pub fn relation_get_number_of_blocks(&mut self, relation: &RelationData) -> BlockNum {
+        let mut rd_smgr = self.smgr.relation_smgropen(relation).borrow_mut();
+        rd_smgr.mdnblocks()
+    }
 
     // `blockNum == P_NEW` case of `ReadBuffer_common` in pg.
     //
