@@ -22,11 +22,7 @@ create_table:
 	cargo run -- --base_dir $(BASE_DIR) create_table $(DBNAME) $(TABLENAME)
 
 insert_into:
-	cargo run -- --base_dir $(BASE_DIR) execute "insert into $(DBNAME).$(TABLENAME) (id, age) values (1, 12)"
-	cargo run -- --base_dir $(BASE_DIR) execute "insert into $(DBNAME).$(TABLENAME) (id, age) values (2, 13)"
-	cargo run -- --base_dir $(BASE_DIR) execute "insert into $(DBNAME).$(TABLENAME) (id, age) values (3, 12)"
-	cargo run -- --base_dir $(BASE_DIR) execute "insert into $(DBNAME).$(TABLENAME) (id, age) values (4, 20)"
-	cargo run -- --base_dir $(BASE_DIR) execute "insert into $(DBNAME).$(TABLENAME) (id, age) values (5, 21)"
+	cargo run -- --base_dir $(BASE_DIR) execute "insert into $(DBNAME).$(TABLENAME) (id, age) values (1, 12), (2, 13), (3, 12), (4, 20), (5, 21)"
 
 insert_into2: insert_into insert_into insert_into insert_into insert_into
 

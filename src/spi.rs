@@ -37,15 +37,19 @@ impl Executor {
                     },
                 }
             },
-            Stmt::InsertStmt(dbname, tablename, keys, values) => {
-                let mut builder = KeyValueBuilder::new();
+            Stmt::InsertStmt(dbname, tablename, keys, value_lists) => {
+                for values in value_lists.iter() {
+                    let mut builder = KeyValueBuilder::new();
 
-                for (k, v) in keys.iter().zip(values.iter()) {
-                    builder.add_pair(k, v)
+                    for (k, v) in keys.iter().zip(values.iter()) {
+                        builder.add_pair(k, v)
+                    }
+
+                    let insert_into = InsertIntoCommnad::new(self.config.clone());
+                    insert_into.execute(&dbname, &tablename, builder.build())?;
                 }
 
-                let insert_into = InsertIntoCommnad::new(self.config.clone());
-                insert_into.execute(&dbname, &tablename, builder.build())
+                Ok(())
             },
         }
     }
@@ -66,5 +70,6 @@ mod tests {
         assert!(parser::StatementParser::new().parse("insert into db.tbl (id, age) values (4, 20)").is_ok());
         assert!(parser::StatementParser::new().parse(r#"insert into db.tbl (id, age) values ('a', 'b')"#).is_ok());
         assert!(parser::StatementParser::new().parse(r#"insert into db.tbl (id, age) values ("a", "b")"#).is_ok());
+        assert!(parser::StatementParser::new().parse("insert into db.tbl (id, age) values (1, 10), (4, 20)").is_ok());
     }
 }

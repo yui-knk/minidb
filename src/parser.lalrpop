@@ -7,8 +7,8 @@ pub Statement: Stmt = {
     Select_T <e:Expression> From_T <fi: From_Item> => {
         Stmt::SelectStmt(e, fi.0, fi.1)
     },
-    // INSERT INTO dbname "." tablename "(" keys ")" VALUES "(" values ")"
-    Insert_T Into_T <fi: From_Item> "(" <li1:Ident_List> ")" Values_T "(" <li2:Value_List> ")" => {
+    // INSERT INTO dbname "." tablename "(" keys ")" VALUES value_lists
+    Insert_T Into_T <fi: From_Item> "(" <li1:Ident_List> ")" Values_T <li2:Value_Lists> => {
         Stmt::InsertStmt(fi.0, fi.1, li1, li2)
     },
 }
@@ -64,6 +64,16 @@ Ident_List: Vec<String> = {
         il
     },
     <i:Ident> => vec![i],
+}
+
+// "(" values ")", "(" values ")" ...
+Value_Lists: Vec<Vec<String>> = {
+    <vls:Value_Lists> Comma "(" <vl:Value_List> ")" => {
+        let mut vls = vls;
+        vls.push(vl);
+        vls
+    },
+    "(" <vl:Value_List> ")" => vec![vl],
 }
 
 Value_List: Vec<String> = {

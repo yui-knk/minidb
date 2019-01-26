@@ -5,7 +5,7 @@
 * [x] Multi pages support
 * [x] Count function support
 * [x] Implement parser
-* [ ] Support multi rows insert syntax
+* [x] Support multi rows insert syntax
 * [ ] Delete operation support
 * [ ] Update operation support
 * [ ] Index support
