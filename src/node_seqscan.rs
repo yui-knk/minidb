@@ -159,7 +159,7 @@ impl<'a> ScanState<'a> {
                 let lines = dp.page_get_max_offset_number();
                 linesleft = lines - lineoff;
 
-                debug!("Next page is loaded: {}", page);
+                debug!("Next page is loaded: (BlockNum {})", page);
             }
         }
     }
