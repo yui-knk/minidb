@@ -11,6 +11,10 @@ pub Statement: Stmt = {
     Insert_T Into_T <fi: From_Item> "(" <li1:Ident_List> ")" Values_T <li2:Value_Lists> => {
         Stmt::InsertStmt(fi.0, fi.1, li1, li2)
     },
+    // DELETE FROM dbname "." tablename
+    Delete_T From_T <fi: From_Item> => {
+        Stmt::DeleteStmt(fi.0, fi.1)
+    },
 }
 
 // expr: "*" | count()
@@ -32,6 +36,11 @@ Insert_T: () = {
 Into_T: () = {
     "into",
     "INTO",
+}
+
+Delete_T: () = {
+    "delete",
+    "DELETE",
 }
 
 Count_T: () = {

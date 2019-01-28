@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::collections::HashMap;
 
 use page::{Page, MAX_HEAP_TUPLE_SIZE};
-use tuple::{TupleTableSlot};
+use tuple::{TupleTableSlot, HeapTupleData, ItemPointerData, HEAP_KEYS_UPDATED};
 use config::{Config, N_BUFFERS, DEFAULT_BLOCK_SIZE};
 use oid_manager::Oid;
 use storage_manager::{StorageManager, RelationData};
@@ -94,6 +94,27 @@ impl BufferManager {
     pub fn heap_insert(&mut self, relation: &RelationData, tuple: &TupleTableSlot) {
         let buffer = self.relation_get_buffer_for_tuple(relation, tuple.len());
         self.relation_put_heap_tuple(buffer, tuple);
+    }
+
+    // `heap_delete` in pg.
+    pub fn heap_delete(&mut self, relation: &RelationData, tid: &ItemPointerData) {
+        let block = ::tuple::item_pointer_get_block_number(tid);
+        let buffer = self.read_buffer(relation, block);
+        let page = self.get_page(buffer);
+        let lineoff = tid.item_pointer_get_offset_number();
+
+        let lp = page.get_item_ref(lineoff);
+        let len = lp.lp_len();
+
+        // TODO: Is this cast correct?
+        let mut tuple_data = HeapTupleData::new(len as u32);
+
+        debug!("Deleting record on (block: {}, lineoff: {})", block, lineoff);
+
+        tuple_data.load_without_len(page.get_entry_pointer(lineoff).unwrap(), tid.clone());
+
+        // Set HEAP_KEYS_UPDATED flag
+        tuple_data.t_data.t_infomask2 = tuple_data.t_data.t_infomask2 | HEAP_KEYS_UPDATED;
     }
 
     // `RelationPutHeapTuple` in pg.

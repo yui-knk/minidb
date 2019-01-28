@@ -33,8 +33,9 @@ impl<'a> KeyValueBuilder<'a> {
 #[derive(Debug, Clone)]
 pub struct ItemPointerData
 {
-    pub ip_blkid: BlockIdData,
-    pub ip_posid: OffsetNumber,
+    ip_blkid: BlockIdData,
+    // offset number in a page (lp_off of ItemIdData).
+    ip_posid: OffsetNumber,
 }
 
 // ItemPointerSetInvalid in pg.
@@ -49,11 +50,16 @@ pub fn item_pointer_set(pointer: &mut ItemPointerData, block_number: BlockNumber
     pointer.ip_posid = off_num;
 }
 
+// ItemPointerGetBlockNumber in pg.
+pub fn item_pointer_get_block_number(pointer: &ItemPointerData) -> BlockIdData {
+    pointer.ip_blkid
+}
+
 
 // Tuple means row of a table.
 pub struct TupleTableSlot {
     tuple_desc: Box<TupleDesc>,
-    heap_tuple: Box<HeapTupleData>,
+    pub heap_tuple: Box<HeapTupleData>,
 }
 
 // This manages metadata (e.g. column definitions).
@@ -67,15 +73,20 @@ pub struct HeapTupleData {
     t_len: u32,
     // SelfItemPointer
     pub t_self: ItemPointerData,
-    t_data: Box<HeapTupleHeaderData>,
+    pub t_data: Box<HeapTupleHeaderData>,
 }
 
 // The contents of this struct are directly read from/write to
 // a tuple of pages.
 #[derive(Debug)]
-struct HeapTupleHeaderData {
+pub struct HeapTupleHeaderData {
+    pub t_infomask2: u16,
+    t_infomask: u16,
     data: *mut u8,
 }
+
+// tuple was updated and key cols modified, or tuple deleted
+pub const HEAP_KEYS_UPDATED: u16 = 0x2000;
 
 impl TupleTableSlot {
     pub fn new(attrs: Vec<MiniAttributeRecord>) -> TupleTableSlot {
@@ -91,6 +102,10 @@ impl TupleTableSlot {
 
     pub fn len(&self) -> u32 {
         self.heap_tuple.t_len
+    }
+
+    pub fn tid(&self) -> &ItemPointerData {
+        &self.heap_tuple.t_self
     }
 
     pub fn load_data(&mut self, src: *const libc::c_void, n: u32, t_self: ItemPointerData) {
@@ -231,7 +246,11 @@ impl HeapTupleHeaderData {
                 panic!("failed to allocate memory");
             }
 
-            HeapTupleHeaderData { data: data_p }
+            HeapTupleHeaderData {
+                t_infomask2: 0,
+                t_infomask: 0,
+                data: data_p
+            }
         }
     }
 
@@ -270,6 +289,11 @@ impl ItemPointerData {
             ip_blkid: ip_blkid,
             ip_posid: ip_posid,
         }
+    }
+
+    // ItemPointerGetOffsetNumber in pg
+    pub fn item_pointer_get_offset_number(&self) -> OffsetNumber {
+        self.ip_posid
     }
 }
 

@@ -31,3 +31,6 @@ select_from:
 
 count:
 	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) execute "select count() from $(DBNAME).$(TABLENAME)"
+
+delete:
+	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) execute "delete from $(DBNAME).$(TABLENAME)"

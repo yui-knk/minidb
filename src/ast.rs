@@ -4,6 +4,8 @@ pub enum Stmt {
     SelectStmt(Box<Expr>, String, String),
     // dbname, tablename, keys, values
     InsertStmt(String, String, Vec<String>, Vec<Vec<String>>),
+    // dbname, tablename
+    DeleteStmt(String, String),
 }
 
 #[derive(Debug)]

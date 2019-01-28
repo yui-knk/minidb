@@ -2,7 +2,7 @@
 use std::rc::Rc;
 
 use ast::{Stmt, Expr};
-use dml::{InsertIntoCommnad, SelectFromCommnad, CountCommnad};
+use dml::{InsertIntoCommnad, SelectFromCommnad, CountCommnad, DeleteCommnad};
 use tuple::{KeyValueBuilder};
 use config::{Config};
 
@@ -53,6 +53,10 @@ impl Executor {
 
                 Ok(())
             },
+            Stmt::DeleteStmt(dbname, tablename) => {
+                let delete = DeleteCommnad::new(self.config.clone());
+                delete.execute(&dbname, &tablename)
+            },
         }
     }
 }
@@ -73,5 +77,10 @@ mod tests {
         assert!(parser::StatementParser::new().parse(r#"insert into db.tbl (id, age) values ('a', 'b')"#).is_ok());
         assert!(parser::StatementParser::new().parse(r#"insert into db.tbl (id, age) values ("a", "b")"#).is_ok());
         assert!(parser::StatementParser::new().parse("insert into db.tbl (id, age) values (1, 10), (4, 20)").is_ok());
+    }
+
+    #[test]
+    fn delete_stmt() {
+        assert!(parser::StatementParser::new().parse("delete from db.tbl").is_ok());
     }
 }

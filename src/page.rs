@@ -252,6 +252,7 @@ impl Page {
         }
     }
 
+    // PageGetItem in pg.
     // index is 0-origin.
     pub fn get_entry_pointer(&self, index: u16) -> Result<*const libc::c_void, String> {
         if index >= self.entry_count() {
