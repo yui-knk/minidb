@@ -344,3 +344,56 @@ Aggregatorは入力となるtupleを一度に全部イテレーターするの�
           }
 ```
 
+# レコード削除を実装する
+
+Ref: http://www.interdb.jp/pg/pgsql05.html#_5.3.
+
+```
+lusiadas=# explain delete from films;
+                          QUERY PLAN
+--------------------------------------------------------------
+ Delete on films  (cost=0.00..13.80 rows=380 width=6)
+   ->  Seq Scan on films  (cost=0.00..13.80 rows=380 width=6)
+(2 rows)
+```
+
+Delete処理は`ExecDelete`関数("nodeModifyTable.c")によって行われる。この関数のメインの処理は`heap_delete`("heapam.c")である。この関数では
+
+(1) tidからblock番号を取得する
+(2) block番号とRelationを指定して、bufferにデータを読み込む
+(3) pageから当該tupleのデータをtuple構造体に読み込む
+(4) t_infomask2のHEAP_KEYS_UPDATEDをたてる(new_infomask2を参照)
+(5) HeapTupleHeaderSetXmaxしてt_xmaxをセットする
+
+
+```c
+  block = ItemPointerGetBlockNumber(tid);
+  buffer = ReadBuffer(relation, block);
+  page = BufferGetPage(buffer);
+...
+  lp = PageGetItemId(page, ItemPointerGetOffsetNumber(tid));
+  Assert(ItemIdIsNormal(lp));
+
+  tp.t_tableOid = RelationGetRelid(relation);
+  tp.t_data = (HeapTupleHeader) PageGetItem(page, lp);
+  tp.t_len = ItemIdGetLength(lp);
+  tp.t_self = *tid;
+
+...
+
+  compute_new_xmax_infomask(HeapTupleHeaderGetRawXmax(tp.t_data),
+                tp.t_data->t_infomask, tp.t_data->t_infomask2,
+                xid, LockTupleExclusive, true,
+                &new_xmax, &new_infomask, &new_infomask2);
+
+...
+
+  /* store transaction information of xact deleting the tuple */
+  tp.t_data->t_infomask &= ~(HEAP_XMAX_BITS | HEAP_MOVED);
+  tp.t_data->t_infomask2 &= ~HEAP_KEYS_UPDATED;
+  tp.t_data->t_infomask |= new_infomask;
+  tp.t_data->t_infomask2 |= new_infomask2;
+  HeapTupleHeaderClearHotUpdated(tp.t_data);
+  HeapTupleHeaderSetXmax(tp.t_data, new_xmax);
+  HeapTupleHeaderSetCmax(tp.t_data, cid, iscombo);
+```

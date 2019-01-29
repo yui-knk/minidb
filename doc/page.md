@@ -1,6 +1,7 @@
 ## TupleTableSlot
 
 Postgresではtableの行のことを(internalに)Tupleと呼んでいる。中心的なデータ構造は`HeapTupleData`("src/include/access/htup.h")と`HeapTupleHeaderData `("src/include/access/htup_details.h")である。`HeapTupleHeaderData`は`t_bits`のあとに、さらにタプルの実データ用の領域をもつようにメモリが確保される(`heap_form_tuple`("src/backend/access/common/heaptuple.c")参照)。
+`HeapTupleFields`にはMVCC用のデータである`t_xmin`/`t_xmax`などがある。
 
 ```c
 typedef struct HeapTupleData
@@ -44,6 +45,18 @@ struct HeapTupleHeaderData
 
   /* MORE DATA FOLLOWS AT END OF STRUCT */
 };
+
+typedef struct HeapTupleFields
+{
+  TransactionId t_xmin;   /* inserting xact ID */
+  TransactionId t_xmax;   /* deleting or locking xact ID */
+
+  union
+  {
+    CommandId t_cid;    /* inserting or deleting command ID, or both */
+    TransactionId t_xvac; /* old-style VACUUM FULL xact ID */
+  }     t_field3;
+} HeapTupleFields;
 ```
 
 ```c
@@ -174,5 +187,20 @@ heap_fetch(Relation relation,
    */
   tuple->t_data = (HeapTupleHeader) PageGetItem(page, lp);
   tuple->t_len = ItemIdGetLength(lp);
+```
+
+tupleからユーザーデータを取得するには`GETSTRUCT`マクロを使う
 
 ```
+/*
+ * GETSTRUCT - given a HeapTuple pointer, return address of the user data
+ */
+#define GETSTRUCT(TUP) ((char *) ((TUP)->t_data) + (TUP)->t_data->t_hoff)
+```
+
+## tuple削除時の挙動
+
+Ref: http://www.interdb.jp/pg/pgsql05.html#_5.3.
+
+実際のPostgresではMVCCを採用しており、`t_xmax`や現在のtransaction idを使用してtupleの可視性を判断している。詳しい実装は`heap_fetch`、`HeapTupleSatisfiesVisibility`、`HeapTupleSatisfiesMVCC`を参照。
+今回は`t_infomask2`の`HEAP_KEYS_UPDATED`のみをつかって削除を実装する。なお更新処理時も追記をする形で更新を実装するので`HEAP_KEYS_UPDATED`をチェックして、当該フラグが立っているtupleを無視するようにすればよい。

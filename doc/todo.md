@@ -8,6 +8,7 @@
 * [x] Support multi rows insert syntax
 * [ ] Delete operation support
 * [ ] Update operation support
+* [ ] Implement ItemPointerData (tuple id) in HeapTupleHeaderData
 * [ ] Index support
 * [ ] Manual vacuum support
 * [ ] Trait for node executions
