@@ -11,6 +11,7 @@ use minidb::config::{Config};
 use minidb::ddl::{CreateDatabaseCommand, CreateTableCommand};
 use minidb::init::{InitCommand};
 use minidb::spi::{Executor};
+use minidb::catalog::catalog_manager::CatalogManager;
 
 fn main() {
     let matches = App::new("minidb")
@@ -105,8 +106,9 @@ fn main() {
             }
         },
         ("execute", Some(sub_m)) => {
+            let cmrg = CatalogManager::new(config.clone());
             let query = sub_m.value_of("query").unwrap();
-            let executor = Executor::new(config.clone());
+            let executor = Executor::new(config.clone(), &cmrg);
 
             match executor.execute_query(query) {
                 Ok(_) => {},

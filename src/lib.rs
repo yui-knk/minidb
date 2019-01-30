@@ -14,6 +14,7 @@ pub mod config;
 
 pub mod catalog {
     pub mod catalog;
+    pub mod catalog_manager;
     pub mod mini_attribute;
     pub mod mini_class;
     pub mod mini_database;

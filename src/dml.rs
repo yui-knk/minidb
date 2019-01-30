@@ -1,10 +1,6 @@
 use std::rc::Rc;
 
 use config::{Config};
-use catalog::catalog::RecordManeger;
-use catalog::mini_database::MiniDatabaseRecord;
-use catalog::mini_class::MiniClassRecord;
-use catalog::mini_attribute::MiniAttributeRecord;
 use tuple::{TupleTableSlot, KeyValue};
 use buffer_manager::{BufferManager};
 use storage_manager::{RelationManager};
@@ -12,6 +8,7 @@ use node_seqscan::{ScanState};
 use node_insert::{InsertState};
 use node_agg::{CountState};
 use node_delete::{DeleteState};
+use catalog::catalog_manager::CatalogManager;
 
 pub struct InsertIntoCommnad {
     config: Rc<Config>,
@@ -36,14 +33,12 @@ impl InsertIntoCommnad {
         }
     }
 
-    pub fn execute(&self, dbname: &str, table_name: &str, key_values: Vec<KeyValue>) -> Result<(), String> {
-        let db: RecordManeger<MiniDatabaseRecord> = RecordManeger::mini_database_rm(&self.config);
-        let db_oid = db.find_mini_database_oid(dbname)
+    pub fn execute(&self, dbname: &str, table_name: &str, key_values: Vec<KeyValue>, cmgr: &CatalogManager) -> Result<(), String> {
+        let db_oid = cmgr.database_rm.find_mini_database_oid(dbname)
                        .expect(&format!("{} database should be defined.", dbname));
-        let table: RecordManeger<MiniClassRecord> = RecordManeger::mini_class_rm(&self.config);
-        let table_oid = table.find_mini_class_oid(db_oid, table_name)
+        let table_oid = cmgr.class_rm.find_mini_class_oid(db_oid, table_name)
                              .expect(&format!("{} table should be defined under the {} database. ", table_name, dbname));
-        let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
+        let rm = &cmgr.attribute_rm;
         let mut rmgr = RelationManager::new(self.config.clone());
         let mut bm = BufferManager::new(1, self.config.clone());
         let relation = rmgr.get_relation(db_oid, table_oid);
@@ -64,15 +59,12 @@ impl SelectFromCommnad {
         }
     }
 
-    pub fn execute(&self, dbname: &str, table_name: &str) -> Result<(), String> {
-        let db: RecordManeger<MiniDatabaseRecord> = RecordManeger::mini_database_rm(&self.config);
-        let db_oid = db.find_mini_database_oid(dbname)
+    pub fn execute(&self, dbname: &str, table_name: &str, cmgr: &CatalogManager) -> Result<(), String> {
+        let db_oid = cmgr.database_rm.find_mini_database_oid(dbname)
                        .expect(&format!("{} database should be defined.", dbname));
-
-        let table: RecordManeger<MiniClassRecord> = RecordManeger::mini_class_rm(&self.config);
-        let table_oid = table.find_mini_class_oid(db_oid, table_name)
+        let table_oid = cmgr.class_rm.find_mini_class_oid(db_oid, table_name)
                              .expect(&format!("{} table should be defined under the {} database. ", table_name, dbname));
-        let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
+        let rm = &cmgr.attribute_rm;
         let mut rmgr = RelationManager::new(self.config.clone());
         let relation = rmgr.get_relation(db_oid, table_oid);
         let mut bm = BufferManager::new(1, self.config.clone());
@@ -103,15 +95,12 @@ impl CountCommnad {
         }
     }
 
-    pub fn execute(&self, dbname: &str, table_name: &str) -> Result<(), String> {
-        let db: RecordManeger<MiniDatabaseRecord> = RecordManeger::mini_database_rm(&self.config);
-        let db_oid = db.find_mini_database_oid(dbname)
+    pub fn execute(&self, dbname: &str, table_name: &str, cmgr: &CatalogManager) -> Result<(), String> {
+        let db_oid = cmgr.database_rm.find_mini_database_oid(dbname)
                        .expect(&format!("{} database should be defined.", dbname));
-
-        let table: RecordManeger<MiniClassRecord> = RecordManeger::mini_class_rm(&self.config);
-        let table_oid = table.find_mini_class_oid(db_oid, table_name)
+        let table_oid = cmgr.class_rm.find_mini_class_oid(db_oid, table_name)
                              .expect(&format!("{} table should be defined under the {} database. ", table_name, dbname));
-        let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
+        let rm = &cmgr.attribute_rm;
         let mut rmgr = RelationManager::new(self.config.clone());
         let relation = rmgr.get_relation(db_oid, table_oid);
         let mut bm = BufferManager::new(1, self.config.clone());
@@ -132,15 +121,12 @@ impl DeleteCommnad {
         }
     }
 
-    pub fn execute(&self, dbname: &str, table_name: &str) -> Result<(), String> {
-        let db: RecordManeger<MiniDatabaseRecord> = RecordManeger::mini_database_rm(&self.config);
-        let db_oid = db.find_mini_database_oid(dbname)
+    pub fn execute(&self, dbname: &str, table_name: &str, cmgr: &CatalogManager) -> Result<(), String> {
+        let db_oid = cmgr.database_rm.find_mini_database_oid(dbname)
                        .expect(&format!("{} database should be defined.", dbname));
-
-        let table: RecordManeger<MiniClassRecord> = RecordManeger::mini_class_rm(&self.config);
-        let table_oid = table.find_mini_class_oid(db_oid, table_name)
+        let table_oid = cmgr.class_rm.find_mini_class_oid(db_oid, table_name)
                              .expect(&format!("{} table should be defined under the {} database. ", table_name, dbname));
-        let rm: RecordManeger<MiniAttributeRecord> = RecordManeger::mini_attribute_rm(&self.config);
+        let rm = &cmgr.attribute_rm;
         let mut rmgr = RelationManager::new(self.config.clone());
         let relation = rmgr.get_relation(db_oid, table_oid);
         let mut bm = BufferManager::new(1, self.config.clone());

@@ -5,17 +5,20 @@ use ast::{Stmt, Expr};
 use dml::{InsertIntoCommnad, SelectFromCommnad, CountCommnad, DeleteCommnad};
 use tuple::{KeyValueBuilder};
 use config::{Config};
+use catalog::catalog_manager::CatalogManager;
 
 lalrpop_mod!(pub parser);
 
-pub struct Executor {
+pub struct Executor<'a> {
     config: Rc<Config>,
+    cmgr: &'a CatalogManager
 }
 
-impl Executor {
-    pub fn new(config: Rc<Config>) -> Executor {
+impl<'a> Executor<'a> {
+    pub fn new(config: Rc<Config>, cmgr: &'a CatalogManager) -> Executor<'a> {
         Executor {
             config: config,
+            cmgr: cmgr
         }
     }
 
@@ -29,11 +32,11 @@ impl Executor {
                 match *expr {
                     Expr::All => {
                         let select_from = SelectFromCommnad::new(self.config.clone());
-                        select_from.execute(&dbname, &tablename)
+                        select_from.execute(&dbname, &tablename, self.cmgr)
                     },
                     Expr::Count => {
                         let count = CountCommnad::new(self.config.clone());
-                        count.execute(&dbname, &tablename)
+                        count.execute(&dbname, &tablename, self.cmgr)
                     },
                 }
             },
@@ -48,14 +51,14 @@ impl Executor {
                     }
 
                     let insert_into = InsertIntoCommnad::new(self.config.clone());
-                    insert_into.execute(&dbname, &tablename, builder.build())?;
+                    insert_into.execute(&dbname, &tablename, builder.build(), self.cmgr)?;
                 }
 
                 Ok(())
             },
             Stmt::DeleteStmt(dbname, tablename) => {
                 let delete = DeleteCommnad::new(self.config.clone());
-                delete.execute(&dbname, &tablename)
+                delete.execute(&dbname, &tablename, self.cmgr)
             },
         }
     }
