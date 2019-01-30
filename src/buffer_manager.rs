@@ -164,9 +164,9 @@ impl BufferManager {
         }
 
         // `buffer = ReadBufferBI(relation, P_NEW, bistate);` call in pg.
-        // TODO: Implement BufferGetBlockNumber
-        let (buffer, block_num) = self.read_buffer_new_page(relation);
+        let buffer = self.read_buffer_new_page(relation);
         self.get_page_mut(buffer).page_init(DEFAULT_BLOCK_SIZE);
+        let block_num = self.buffer_get_block_number(buffer);
         let mut rd_smgr = self.smgr.relation_smgropen(&relation).borrow_mut();
         rd_smgr.smgr_targblock = block_num;
 
@@ -189,7 +189,7 @@ impl BufferManager {
     // `blockNum == P_NEW` case of `ReadBuffer_common` in pg.
     //
     // This method create new page.
-    fn read_buffer_new_page(&mut self, relation: &RelationData) -> (Buffer, BlockNumber) {
+    fn read_buffer_new_page(&mut self, relation: &RelationData) -> Buffer {
         let mut page = Page::new(DEFAULT_BLOCK_SIZE);
         page.fill_with_zero(DEFAULT_BLOCK_SIZE as usize);
         let mut rd_smgr = self.smgr.relation_smgropen(&relation).borrow_mut();
@@ -207,7 +207,7 @@ impl BufferManager {
             let opt = self.buffer_hash.get(&tag);
 
             if opt.is_some() {
-                return (opt.unwrap().clone(), block_num);
+                return opt.unwrap().clone();
             }
         }
 
@@ -230,7 +230,7 @@ impl BufferManager {
 
         ensure_pages_length!(self);
 
-        (buffer, block_num)
+        buffer
     }
 
 
