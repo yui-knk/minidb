@@ -6,7 +6,7 @@
 * [x] Count function support
 * [x] Implement parser
 * [x] Support multi rows insert syntax
-* [ ] Delete operation support
+* [x] Delete operation support
 * [ ] Update operation support
 * [ ] Implement ItemPointerData (tuple id) in HeapTupleHeaderData
 * [ ] Index support
