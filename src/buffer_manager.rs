@@ -324,8 +324,5 @@ impl BufferManager {
             Buffer::InvalidBuffer => panic!("InvalidBuffer")
         }
     }
-    // 
-    // pub fn read_buffer_extended(&mut self, block_num: BlockNumber) -> Buffer {
-    // }
 }
 
