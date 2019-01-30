@@ -1,3 +1,5 @@
+use std::mem;
+
 use catalog::mini_attribute::MiniAttributeRecord;
 use off::{OffsetNumber, FirstOffsetNumber, InvalidOffsetNumber};
 use ty::{TypeValue, load_type_value, build_type_value};
@@ -78,15 +80,25 @@ pub struct HeapTupleData {
 
 // The contents of this struct are directly read from/write to
 // a tuple of pages.
+//
+// The data field of this struct includes t_infomask2
+// and t_infomask.
+//
+// struct HeapTupleHeaderData {
+//     t_infomask2: u16,
+//     t_infomask: u16,
+//     data: *mut u8,
+// }
 #[derive(Debug)]
 pub struct HeapTupleHeaderData {
-    pub t_infomask2: u16,
-    t_infomask: u16,
-    data: *mut u8,
+    ptr: *mut u8,
 }
 
+// t_infomask2 and t_infomask
+const SIZE_OF_HEADER_HEADER: usize = mem::size_of::<u16>() * 2;
+
 // tuple was updated and key cols modified, or tuple deleted
-pub const HEAP_KEYS_UPDATED: u16 = 0x2000;
+const HEAP_KEYS_UPDATED: u16 = 0x2000;
 
 impl TupleTableSlot {
     pub fn new(attrs: Vec<MiniAttributeRecord>) -> TupleTableSlot {
@@ -118,10 +130,6 @@ impl TupleTableSlot {
 
     pub fn attrs_count(&self) -> usize {
         self.tuple_desc.attrs_count()
-    }
-
-    pub fn attrs_total_len(&self) -> u32 {
-        self.tuple_desc.attrs_total_len()
     }
 
     // index is 0-origin.
@@ -178,7 +186,8 @@ impl TupleTableSlot {
 
     fn attr_ptr(&self, index: usize) -> *const u8 {
         unsafe {
-            self.heap_tuple.t_data.data.add(self.tuple_desc.attrs_len(index) as usize)
+            let p = self.heap_tuple.t_data.data_ptr() as *const u8;
+            p.add(self.tuple_desc.attrs_len(index) as usize)
         }
     }
 }
@@ -204,7 +213,18 @@ impl TupleDesc {
 }
 
 impl HeapTupleData {
-    pub fn new(len: u32) -> HeapTupleData {
+    pub fn new(data_len: u32) -> HeapTupleData {
+        let len = data_len + SIZE_OF_HEADER_HEADER as u32;
+        let data = Box::new(HeapTupleHeaderData::new(len));
+
+        HeapTupleData {
+            t_len: len,
+            t_self: ItemPointerData::new(),
+            t_data: data,
+        }
+    }
+
+    pub fn new_with_full_len(len: u32) -> HeapTupleData {
         let data = Box::new(HeapTupleHeaderData::new(len));
 
         HeapTupleData {
@@ -233,7 +253,11 @@ impl HeapTupleData {
     }
 
     pub fn data_ptr(&self) -> *const libc::c_void {
-        self.t_data.data as *const libc::c_void
+        self.t_data.ptr as *const libc::c_void
+    }
+
+    pub fn write_data(&mut self, dest: *mut libc::c_void) {
+        self.t_data.write_data(dest, self.t_len);
     }
 }
 
@@ -242,28 +266,70 @@ impl HeapTupleHeaderData {
         unsafe {
             let data_p: *mut u8 = libc::malloc(data_size as libc::size_t) as *mut u8;
 
+            debug!("HeapTupleHeaderData malloc: {:?}, {}", data_p, data_size);
+
             if data_p.is_null() {
                 panic!("failed to allocate memory");
             }
 
             HeapTupleHeaderData {
-                t_infomask2: 0,
-                t_infomask: 0,
-                data: data_p
+                ptr: data_p
             }
+        }
+    }
+
+    pub fn set_heap_keys_updated(&mut self) {
+        let mask2 = self.t_infomask2();
+        self.set_t_infomask2(mask2 | HEAP_KEYS_UPDATED);
+    }
+
+    pub fn heap_keys_updated_p(&self) -> bool {
+        let mask2 = self.t_infomask2();
+        (mask2 & HEAP_KEYS_UPDATED) != 0
+    }
+
+    fn t_infomask2(&self) -> u16 {
+        unsafe {
+            let p = self.ptr as *const u16;
+            *p
+        }
+    }
+
+    fn set_t_infomask2(&mut self, mask: u16) {
+        unsafe {
+            let p = self.ptr as *mut u16;
+            *p = mask;
+        }
+    }
+
+    fn data_ptr(&self) -> *const libc::c_void {
+        unsafe {
+            self.ptr.add(SIZE_OF_HEADER_HEADER) as *const libc::c_void
         }
     }
 
     fn load(&mut self, src: *const libc::c_void, n: u32) {
         unsafe {
-            libc::memcpy(self.data as *mut libc::c_void, src, n as usize);
+            libc::memcpy(self.ptr as *mut libc::c_void, src, n as usize);
+
+            debug!("HeapTupleHeaderData load: {:?}, {:?}", self.ptr, n);
         }
     }
 
     fn set_column(&mut self, src: *const libc::c_void, n: u32, offset: usize) {
         unsafe {
-            let dest: *mut libc::c_void = self.data.add(offset) as *mut libc::c_void;
+            let dest: *mut libc::c_void = self.data_ptr().add(offset) as *mut libc::c_void;
             libc::memcpy(dest, src, n as usize);
+
+            debug!("HeapTupleHeaderData set_column: {:?}, {:?}", dest, n);
+        }
+    }
+
+    fn write_data(&mut self, dest: *mut libc::c_void, n: u32) {
+        unsafe {
+            libc::memcpy(dest, self.ptr as *const libc::c_void, n as usize);
+
+            debug!("HeapTupleHeaderData write_data: {:?}, {:?}", self.ptr, n);
         }
     }
 }
@@ -271,11 +337,13 @@ impl HeapTupleHeaderData {
 impl Drop for HeapTupleHeaderData {
     fn drop(&mut self) {
         unsafe {
-            if self.data.is_null() {
-                panic!("data should not be null pointer.");
+            if self.ptr.is_null() {
+                panic!("ptr should not be null pointer.");
             }
 
-            libc::free(self.data as *mut libc::c_void);
+            debug!("HeapTupleHeaderData free: {:?}", self.ptr);
+
+            libc::free(self.ptr as *mut libc::c_void);
         }
     }
 }
@@ -323,9 +391,9 @@ mod tests {
         let slot = TupleTableSlot::new(attrs);
 
         assert_eq!(slot.attrs_count(), 2);
-        assert_eq!(slot.attr_ptr(0), slot.heap_tuple.t_data.data);
+        assert_eq!(slot.attr_ptr(0), slot.heap_tuple.t_data.data_ptr() as *const u8);
         unsafe {
-            assert_eq!(slot.attr_ptr(1), slot.heap_tuple.t_data.data.add(4));
+            assert_eq!(slot.attr_ptr(1), (slot.heap_tuple.t_data.data_ptr() as *const u8).add(4));
         }
     }
 

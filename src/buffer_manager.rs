@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::collections::HashMap;
 
 use page::{Page, MAX_HEAP_TUPLE_SIZE};
-use tuple::{TupleTableSlot, HeapTupleData, ItemPointerData, HEAP_KEYS_UPDATED};
+use tuple::{TupleTableSlot, HeapTupleData, ItemPointerData};
 use config::{Config, N_BUFFERS, DEFAULT_BLOCK_SIZE};
 use oid_manager::Oid;
 use storage_manager::{StorageManager, RelationData};
@@ -107,14 +107,16 @@ impl BufferManager {
         let len = lp.lp_len();
 
         // TODO: Is this cast correct?
-        let mut tuple_data = HeapTupleData::new(len as u32);
+        let mut tuple_data = HeapTupleData::new_with_full_len(len as u32);
 
         debug!("Deleting record on (block: {}, lineoff: {})", block, lineoff);
 
         tuple_data.load_without_len(page.get_entry_pointer(lineoff).unwrap(), tid.clone());
 
         // Set HEAP_KEYS_UPDATED flag
-        tuple_data.t_data.t_infomask2 = tuple_data.t_data.t_infomask2 | HEAP_KEYS_UPDATED;
+        tuple_data.t_data.set_heap_keys_updated();
+
+        tuple_data.write_data(page.get_entry_pointer(lineoff).unwrap() as *mut libc::c_void);
     }
 
     // `RelationPutHeapTuple` in pg.
@@ -126,7 +128,7 @@ impl BufferManager {
     // `RelationGetBufferForTuple` function in pg.
     fn relation_get_buffer_for_tuple(&mut self, relation: &RelationData, len: u32) -> Buffer {
         if (len as usize) > MAX_HEAP_TUPLE_SIZE {
-            panic!("row is too big: size {}, , maximum size {}", len, MAX_HEAP_TUPLE_SIZE);
+            panic!("row is too big: size {}, maximum size {}", len, MAX_HEAP_TUPLE_SIZE);
         }
 
         let mut target_block = InvalidBlockNumber;
@@ -210,6 +212,9 @@ impl BufferManager {
             dirty: false,
             valid: true,
         };
+
+        debug!("page is pushed (len: {}, tag {:?})", self.pages.len(), tag);
+
         self.pages.push(page);
         self.buffer_descriptors.push(descriptor);
         self.buffer_hash.entry(tag).or_insert_with(|| {
@@ -217,7 +222,6 @@ impl BufferManager {
         });
 
         ensure_pages_length!(self);
-        debug!("page is pushed (len: {})", self.pages.len());
 
         (buffer, block_num)
     }
@@ -244,6 +248,9 @@ impl BufferManager {
             dirty: false,
             valid: true,
         };
+
+        debug!("page is pushed (len: {}, tag {:?})", self.pages.len(), tag);
+
         self.pages.push(page);
         self.buffer_descriptors.push(descriptor);
         self.buffer_hash.entry(tag).or_insert_with(|| {
@@ -251,7 +258,6 @@ impl BufferManager {
         });
 
         ensure_pages_length!(self);
-        debug!("page is pushed (len: {})", self.pages.len());
 
         buffer
     }
@@ -263,6 +269,8 @@ impl BufferManager {
     }
 
     fn flush_buffer_with_index(&mut self, i: usize) {
+        debug!("Page {} is flushed", i);
+
         let page = &self.pages[i];
         let descriptor = &self.buffer_descriptors[i];
         let rnode = &descriptor.tag.rnode;

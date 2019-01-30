@@ -124,6 +124,8 @@ impl Page {
         unsafe {
             let header_p: *mut PageHeaderData = libc::malloc(block_size as libc::size_t) as *mut PageHeaderData;
 
+            debug!("Page malloc: {:?}", header_p);
+
             if header_p.is_null() {
                 panic!("failed to allocate memory");
             }
@@ -177,6 +179,8 @@ impl Page {
     }
 
     pub fn add_entry(&mut self, src: *const libc::c_void, n: u16) -> Result<(), String> {
+        debug!("Page add_entry. n: {}", n);
+
         if self.has_space(n) {
             self.mut_header().pd_upper -= n;
             let item = ItemIdData::new_with_lps(self.header().pd_upper, 0, n);
@@ -196,7 +200,7 @@ impl Page {
     }
 
     pub fn add_tuple_slot_entry(&mut self, slot: &TupleTableSlot) -> Result<(), String> {
-        self.add_entry(slot.data_ptr(), slot.attrs_total_len() as u16)
+        self.add_entry(slot.data_ptr(), slot.len() as u16)
     }
 
     pub fn add_vec_entry(&mut self, entry: &Vec<u8>) -> Result<(), String> {
@@ -297,6 +301,8 @@ impl Drop for Page {
                 panic!("header should not be null pointer.");
             }
 
+            debug!("Page free: {:?}", self.header);
+
             libc::free(self.header as *mut libc::c_void);
         }
     }
@@ -390,7 +396,7 @@ mod tests {
             4
         ));
         let mut slot = TupleTableSlot::new(attrs);
-        let slot_data_size = (mem::size_of::<i32>() * 2) as u16;
+        let slot_data_size = slot.len() as u16;
 
         slot.set_column(0, &Integer { elem: 10 });
         slot.set_column(1, &Integer { elem: 22 });
@@ -400,6 +406,7 @@ mod tests {
         assert_eq!(page.header().pd_upper, DEFAULT_BLOCK_SIZE - slot_data_size);
         assert_eq!(page.is_empty(), false);
         assert_eq!(page.entry_count(), 1);
-        assert_eq!(page.get_item_ref(0).lp_len(), 4 * 2);
+        assert_eq!(page.get_item_ref(0).lp_len(), slot_data_size);
+        assert_eq!(page.get_entry(0).unwrap(), vec![0, 0, 0, 0, 10, 0, 0, 0, 22, 0, 0, 0]);
     }
 }
