@@ -200,11 +200,20 @@ impl BufferManager {
 
         rd_smgr.mdextend(block_num, page.header_pointer());
 
-        let buffer = Buffer::Buffer(self.pages.len());
         let tag = BufferTag {
             rnode: rd_smgr.smgr_rnode.clone(),
             block_num: block_num,
         };
+
+        {
+            let opt = self.buffer_hash.get(&tag);
+
+            if opt.is_some() {
+                return (opt.unwrap().clone(), block_num);
+            }
+        }
+
+        let buffer = Buffer::Buffer(self.pages.len());
         let descriptor = BufferDesc {
             tag: tag.clone(),
             buf_id: buffer,
@@ -236,11 +245,23 @@ impl BufferManager {
         let mut rd_smgr = self.smgr.relation_smgropen(&relation).borrow_mut();
 
         rd_smgr.mdread(block_num, page.header_pointer());
-        let buffer = Buffer::Buffer(self.pages.len());
+
+        // TODO: Extract below as a function, see read_buffer_new_page.
         let tag = BufferTag {
             rnode: rd_smgr.smgr_rnode.clone(),
             block_num: block_num,
         };
+
+        {
+            let opt = self.buffer_hash.get(&tag);
+
+            if opt.is_some() {
+                return opt.unwrap().clone();
+            }
+        }
+
+
+        let buffer = Buffer::Buffer(self.pages.len());
         let descriptor = BufferDesc {
             tag: tag.clone(),
             buf_id: buffer,

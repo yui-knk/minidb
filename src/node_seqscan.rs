@@ -135,8 +135,19 @@ impl<'a> ScanState<'a> {
                 let dp = bufmrg.get_page(scan_desc.rs_cbuf);
                 let mut t_self = ItemPointerData::new();
                 ::tuple::item_pointer_set(&mut t_self, scan_desc.rs_cblock, lineoff);
+                debug!("lp_len {}", dp.get_item_ref(lineoff).lp_len());
                 scan_desc.rs_ctup.load_without_len(dp.get_entry_pointer(lineoff).unwrap(), t_self);
-                return
+
+                // Skip deleted record
+                if scan_desc.rs_ctup.t_data.heap_keys_updated_p() {
+                    debug!("Skip deleted tuple {}", lineoff);
+                    lineoff = lineoff + 1;
+                    linesleft = linesleft - 1;
+                    // next
+                } else {
+                    debug!("Return tuple {}", lineoff);
+                    return
+                }
             }
 
             // if we get here, it means we've exhausted the items on this page and
