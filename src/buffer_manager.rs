@@ -61,6 +61,7 @@ pub struct BufferManager {
     buffer_descriptors: Vec<BufferDesc>,
     pages: Vec<Page>,
     // Hash from BufferTag to index of descriptor and page
+    // See LocalBufHash in pg.
     buffer_hash: HashMap<BufferTag, Buffer>,
 }
 
