@@ -112,10 +112,7 @@ impl BufferManager {
         debug!("Deleting record on (block: {}, lineoff: {})", block, lineoff);
 
         tuple_data.load_without_len(page.get_entry_pointer(lineoff).unwrap(), tid.clone());
-
-        // Set HEAP_KEYS_UPDATED flag
         tuple_data.t_data.set_heap_keys_updated();
-
         tuple_data.write_data(page.get_entry_pointer(lineoff).unwrap() as *mut libc::c_void);
     }
 
