@@ -190,47 +190,18 @@ impl BufferManager {
     //
     // This method create new page.
     fn read_buffer_new_page(&mut self, relation: &RelationData) -> Buffer {
-        let mut page = Page::new(DEFAULT_BLOCK_SIZE);
-        page.fill_with_zero(DEFAULT_BLOCK_SIZE as usize);
-        let mut rd_smgr = self.smgr.relation_smgropen(&relation).borrow_mut();
-        // Get latest block number.
-        let block_num = rd_smgr.mdnblocks();
+        let tag = {
+            let mut rd_smgr = self.smgr.relation_smgropen(relation).borrow_mut();
+            // Get latest block number.
+            let block_num = rd_smgr.mdnblocks();
 
-        rd_smgr.mdextend(block_num, page.header_pointer());
-
-        let tag = BufferTag {
-            rnode: rd_smgr.smgr_rnode.clone(),
-            block_num: block_num,
-        };
-
-        {
-            let opt = self.buffer_hash.get(&tag);
-
-            if opt.is_some() {
-                return opt.unwrap().clone();
+            BufferTag {
+                rnode: rd_smgr.smgr_rnode.clone(),
+                block_num: block_num,
             }
-        }
-
-        let buffer = Buffer::Buffer(self.pages.len());
-        let descriptor = BufferDesc {
-            tag: tag.clone(),
-            buf_id: buffer,
-            locked: false,
-            dirty: false,
-            valid: true,
         };
 
-        debug!("page is pushed (len: {}, tag {:?})", self.pages.len(), tag);
-
-        self.pages.push(page);
-        self.buffer_descriptors.push(descriptor);
-        self.buffer_hash.entry(tag).or_insert_with(|| {
-            buffer
-        });
-
-        ensure_pages_length!(self);
-
-        buffer
+        self.read_buffer_common(relation, tag, true)
     }
 
 
@@ -239,17 +210,19 @@ impl BufferManager {
     // determine which block should be loaded, but the block info is stored in
     // Relation (SMgrRelationData).
     pub fn read_buffer(&mut self, relation: &RelationData, block_num: BlockNumber) -> Buffer {
-        let page = Page::new(DEFAULT_BLOCK_SIZE);
-        let mut rd_smgr = self.smgr.relation_smgropen(&relation).borrow_mut();
-
-        rd_smgr.mdread(block_num, page.header_pointer());
-
-        // TODO: Extract below as a function, see read_buffer_new_page.
-        let tag = BufferTag {
-            rnode: rd_smgr.smgr_rnode.clone(),
-            block_num: block_num,
+        let tag = {
+            let rd_smgr = self.smgr.relation_smgropen(relation).borrow();
+            BufferTag {
+                rnode: rd_smgr.smgr_rnode.clone(),
+                block_num: block_num,
+            }
         };
 
+        self.read_buffer_common(relation, tag, false)
+    }
+
+    // ReadBuffer_common in pg
+    fn read_buffer_common(&mut self, relation: &RelationData, tag: BufferTag, new_page: bool) -> Buffer {
         {
             let opt = self.buffer_hash.get(&tag);
 
@@ -257,7 +230,6 @@ impl BufferManager {
                 return opt.unwrap().clone();
             }
         }
-
 
         let buffer = Buffer::Buffer(self.pages.len());
         let descriptor = BufferDesc {
@@ -269,6 +241,19 @@ impl BufferManager {
         };
 
         debug!("page is pushed (len: {}, tag {:?})", self.pages.len(), tag);
+
+        let mut rd_smgr = self.smgr.relation_smgropen(relation).borrow_mut();
+
+        let page = if new_page {
+            let mut page = Page::new(DEFAULT_BLOCK_SIZE);
+            page.fill_with_zero(DEFAULT_BLOCK_SIZE as usize);
+            rd_smgr.mdextend(tag.block_num, page.header_pointer());
+            page
+        } else {
+            let page = Page::new(DEFAULT_BLOCK_SIZE);
+            rd_smgr.mdread(tag.block_num, page.header_pointer());
+            page
+        };
 
         self.pages.push(page);
         self.buffer_descriptors.push(descriptor);
