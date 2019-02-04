@@ -7,6 +7,7 @@ use buffer_manager::{Buffer, BlockNumber, BufferManager, InvalidBlockNumber};
 use tuple::{TupleTableSlot, HeapTupleData, ItemPointerData};
 use off::{FirstOffsetNumber};
 use storage_manager::{RelationData};
+use ast::Expr;
 
 struct PlanState {
 
@@ -20,6 +21,8 @@ pub struct ScanState<'a> {
     ss_currentScanDesc: HeapScanDescData<'a>,
     // pointer to slot in tuple table holding scan tuple
     ss_ScanTupleSlot: Box<TupleTableSlot>,
+    // The field of PlanState in pg.
+    qual: &'a Option<Box<Expr>>,
 }
 
 #[derive(Debug)]
@@ -51,7 +54,8 @@ impl<'a> ScanState<'a> {
     pub fn new(
         relation: &'a RefCell<RelationData>,
         rm: &RecordManeger<MiniAttributeRecord>,
-        bufmrg: &mut BufferManager
+        bufmrg: &mut BufferManager,
+        qual: &'a Option<Box<Expr>>
     ) -> ScanState<'a> {
         let rnode = &relation.borrow().smgr_rnode;
         let attrs = rm.attributes_clone(rnode.db_oid, rnode.table_oid);
@@ -79,34 +83,42 @@ impl<'a> ScanState<'a> {
             ss_currentRelation: relation,
             ss_currentScanDesc: scan_desc,
             ss_ScanTupleSlot: Box::new(slot),
+            qual: qual,
         }
     }
 
     // ExecScan in pg.
     pub fn exec_scan(&mut self, bufmrg: &mut BufferManager) -> Option<&TupleTableSlot> {
-        self.seq_next(bufmrg)
+        loop {
+            self.seq_next(bufmrg);
+
+            if self.ss_currentScanDesc.rs_finished {
+                return None;
+            }
+
+            if self.exec_qual() {
+                return Some(self.ss_ScanTupleSlot.as_ref());
+            }
+
+            // next tuple
+        }
     }
 
     // SeqNext in pg.
-    fn seq_next(&mut self, bufmrg: &mut BufferManager) -> Option<&TupleTableSlot> {
-        let b = self.heap_getnext(bufmrg);
+    fn seq_next(&mut self, bufmrg: &mut BufferManager) {
+        self.heap_getnext(bufmrg);
 
-        if b {
+        if !self.ss_currentScanDesc.rs_finished {
             let tuple = &self.ss_currentScanDesc.rs_ctup;
             self.ss_ScanTupleSlot.load_data_without_len(tuple.data_ptr(), tuple.t_self.clone());
-            Some(self.ss_ScanTupleSlot.as_ref())
-        } else {
-            None
         }
     }
 
     // heap_getnext in pg.
     //
     // Get next tuple
-    fn heap_getnext(&mut self, bufmrg: &mut BufferManager) -> bool {
+    fn heap_getnext(&mut self, bufmrg: &mut BufferManager) {
         self.heapgettup(bufmrg);
-        let scan_desc = &self.ss_currentScanDesc;
-        !scan_desc.rs_finished
     }
 
     // heapgettup in pg.
@@ -139,6 +151,7 @@ impl<'a> ScanState<'a> {
                 scan_desc.rs_ctup.load_without_len(dp.get_entry_pointer(lineoff).unwrap(), t_self);
 
                 // Skip deleted record
+
                 if scan_desc.rs_ctup.t_data.heap_keys_updated_p() {
                     debug!("Skip deleted tuple {}", lineoff);
                     lineoff = lineoff + 1;
@@ -170,6 +183,29 @@ impl<'a> ScanState<'a> {
                 linesleft = lines - lineoff;
 
                 debug!("Next page is loaded: (BlockNum {})", page);
+            }
+        }
+    }
+
+    // ExecQual in pg.
+    //
+    // If we need to current tuple to check qual,
+    // use `self.ss_ScanTupleSlot.as_ref()`.
+    fn exec_qual(&self) -> bool {
+        if self.qual.is_none() {
+            // Always condition is met
+            return true;
+        }
+
+        match self.qual.as_ref().unwrap().as_ref() {
+            Expr::Bool(b) => {
+                return b.clone();
+            },
+            Expr::All => {
+                panic!("Unknown qual ({:?})", self.qual);
+            },
+            Expr::Count => {
+                panic!("Unknown qual ({:?})", self.qual);
             }
         }
     }

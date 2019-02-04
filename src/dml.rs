@@ -9,6 +9,7 @@ use node_insert::{InsertState};
 use node_agg::{CountState};
 use node_delete::{DeleteState};
 use catalog::catalog_manager::CatalogManager;
+use ast::Expr;
 
 pub struct InsertIntoCommnad {
     config: Rc<Config>,
@@ -59,7 +60,7 @@ impl SelectFromCommnad {
         }
     }
 
-    pub fn execute(&self, dbname: &str, table_name: &str, cmgr: &CatalogManager) -> Result<(), String> {
+    pub fn execute(&self, dbname: &str, table_name: &str, cmgr: &CatalogManager, qual: &Option<Box<Expr>>) -> Result<(), String> {
         let db_oid = cmgr.database_rm.find_mini_database_oid(dbname)
                        .expect(&format!("{} database should be defined.", dbname));
         let table_oid = cmgr.class_rm.find_mini_class_oid(db_oid, table_name)
@@ -68,7 +69,7 @@ impl SelectFromCommnad {
         let mut rmgr = RelationManager::new(self.config.clone());
         let relation = rmgr.get_relation(db_oid, table_oid);
         let mut bm = BufferManager::new(1, self.config.clone());
-        let mut scan = ScanState::new(relation, &rm, &mut bm);
+        let mut scan = ScanState::new(relation, &rm, &mut bm, qual);
 
         loop {
             let opt = scan.exec_scan(&mut bm);
@@ -95,7 +96,7 @@ impl CountCommnad {
         }
     }
 
-    pub fn execute(&self, dbname: &str, table_name: &str, cmgr: &CatalogManager) -> Result<(), String> {
+    pub fn execute(&self, dbname: &str, table_name: &str, cmgr: &CatalogManager, qual: &Option<Box<Expr>>) -> Result<(), String> {
         let db_oid = cmgr.database_rm.find_mini_database_oid(dbname)
                        .expect(&format!("{} database should be defined.", dbname));
         let table_oid = cmgr.class_rm.find_mini_class_oid(db_oid, table_name)
@@ -104,7 +105,7 @@ impl CountCommnad {
         let mut rmgr = RelationManager::new(self.config.clone());
         let relation = rmgr.get_relation(db_oid, table_oid);
         let mut bm = BufferManager::new(1, self.config.clone());
-        let scan = ScanState::new(relation, &rm, &mut bm);
+        let scan = ScanState::new(relation, &rm, &mut bm, qual);
         let mut count = CountState::new(scan);
 
         count.exec_agg(&mut bm);
@@ -130,7 +131,7 @@ impl DeleteCommnad {
         let mut rmgr = RelationManager::new(self.config.clone());
         let relation = rmgr.get_relation(db_oid, table_oid);
         let mut bm = BufferManager::new(1, self.config.clone());
-        let scan = ScanState::new(relation, &rm, &mut bm);
+        let scan = ScanState::new(relation, &rm, &mut bm, &None);
         let mut delete = DeleteState::new(relation, scan);
 
         delete.exec_delete(&mut bm);

@@ -32,11 +32,11 @@ impl<'a> Executor<'a> {
                 match *expr {
                     Expr::All => {
                         let select_from = SelectFromCommnad::new(self.config.clone());
-                        select_from.execute(&dbname, &tablename, self.cmgr)
+                        select_from.execute(&dbname, &tablename, self.cmgr, &where_clause)
                     },
                     Expr::Count => {
                         let count = CountCommnad::new(self.config.clone());
-                        count.execute(&dbname, &tablename, self.cmgr)
+                        count.execute(&dbname, &tablename, self.cmgr, &where_clause)
                     },
                     Expr::Bool(_) => {
                         panic!("Unknown expr ({:?})", expr);
@@ -75,6 +75,12 @@ mod tests {
     fn select_stmt() {
         assert!(parser::StatementParser::new().parse("select * from db.tbl").is_ok());
         assert!(parser::StatementParser::new().parse("select count() from db.tbl").is_ok());
+    }
+
+    #[test]
+    fn select_stmt_with_where() {
+        assert!(parser::StatementParser::new().parse("select * from db.tbl where true").is_ok());
+        assert!(parser::StatementParser::new().parse("select count() from db.tbl where false").is_ok());
     }
 
     #[test]
