@@ -490,17 +490,108 @@ simple_select:
 `ExecInitQual`の中でexpressionがコンパイルされる様子をみていく。`ExecInitQual`は`ExprState`をアロケートし初期化する。そして`ExecInitExprRec`を呼び出してexpressionをstepに変換して`ExprState`に積んでいく。そして最後に`ExecReadyExpr`を呼び出す。`ExecReadyExpr`は`ExecReadyInterpretedExpr`を呼び出す。
 `ExecReadyInterpretedExpr`では`state->evalfunc = ExecInterpExprStillValid;`とセットしたのちに、stepに応じて`ExprState->evalfunc_private`を決定する。ここで最も汎用的な`evalfunc_private`は`ExecInterpExpr`である。
 なおここで設定された`evalfunc`は`ExecEvalExpr`もしくは`ExecEvalExprSwitchContext`を使って呼び出すことができる。
-
-`ExecScan` (`qual = node->ps.qual;`) -> `ExecQual` -> `ExecEvalExprSwitchContext` (`retDatum = state->evalfunc(state, econtext, isNull);`)
+たとえばSeqScanの場合、`ExecScan` (`qual = node->ps.qual;`) -> `ExecQual` -> `ExecEvalExprSwitchContext` (`retDatum = state->evalfunc(state, econtext, isNull);`) と呼び出される。
 
 "="は実際にはどのような命令になるのか？
+前述したように`pg_analyze_and_rewrite`の処理の中の`make_op`で`T_A_Expr`だったNodeは`OpExpr`Node("primnodes.h")になっている。これは`ExecInitExprRec`の中では`case T_OpExpr:`に該当するため`ExecInitFunc`が呼ばれる。
 
-`_equalAExpr` `pg_operator.dat` `oper` `pg_proc` `ExecInterpExpr`
+```c
+case T_OpExpr:
+  {
+    OpExpr     *op = (OpExpr *) node;
 
-`_SPI_prepare_plan`
-  * `pg_parse_query`
-  * 
+    ExecInitFunc(&scratch, node,
+           op->args, op->opfuncid, op->inputcollid,
+           state);
+    ExprEvalPushStep(state, &scratch);
+    break;
+  }
+```
 
+`ExecInitFunc`のなかで`scratch->opcode`に代入されうるのは次の4つ:
+
+* `EEOP_FUNCEXPR_STRICT`
+* `EEOP_FUNCEXPR`
+* `EEOP_FUNCEXPR_STRICT_FUSAGE`
+* `EEOP_FUNCEXPR_FUSAGE`
+
+```c
+  /* Insert appropriate opcode depending on strictness and stats level */
+  if (pgstat_track_functions <= flinfo->fn_stats)
+  {
+    if (flinfo->fn_strict && nargs > 0)
+      scratch->opcode = EEOP_FUNCEXPR_STRICT;
+    else
+      scratch->opcode = EEOP_FUNCEXPR;
+  }
+  else
+  {
+    if (flinfo->fn_strict && nargs > 0)
+      scratch->opcode = EEOP_FUNCEXPR_STRICT_FUSAGE;
+    else
+      scratch->opcode = EEOP_FUNCEXPR_FUSAGE;
+  }
+```
+
+たとえば`EEOP_FUNCEXPR`の場合、`ExecInterpExpr`では以下のように`op->d.func.fn_addr`の呼び出しになる。
+
+```c
+    /*
+     * Function-call implementations. Arguments have previously been
+     * evaluated directly into fcinfo->args.
+     *
+     * As both STRICT checks and function-usage are noticeable performance
+     * wise, and function calls are a very hot-path (they also back
+     * operators!), it's worth having so many separate opcodes.
+     *
+     * Note: the reason for using a temporary variable "d", here and in
+     * other places, is that some compilers think "*op->resvalue = f();"
+     * requires them to evaluate op->resvalue into a register before
+     * calling f(), just in case f() is able to modify op->resvalue
+     * somehow.  The extra line of code can save a useless register spill
+     * and reload across the function call.
+     */
+    EEO_CASE(EEOP_FUNCEXPR)
+    {
+      FunctionCallInfo fcinfo = op->d.func.fcinfo_data;
+      Datum   d;
+
+      fcinfo->isnull = false;
+      d = op->d.func.fn_addr(fcinfo);
+      *op->resvalue = d;
+      *op->resnull = fcinfo->isnull;
+
+      EEO_NEXT();
+    }
+```
+
+この`fn_addr`がどこからくるのかというと、それは`ExecInitFunc`である。
+
+```c
+  /* Set up the primary fmgr lookup information */
+  fmgr_info(funcid, flinfo);
+  fmgr_info_set_expr((Node *) node, flinfo);
+
+  /* Initialize function call parameter structure too */
+  InitFunctionCallInfoData(*fcinfo, flinfo,
+               nargs, inputcollid, NULL, NULL);
+
+  /* Keep extra copies of this info to save an indirection at runtime */
+  scratch->d.func.fn_addr = flinfo->fn_addr;
+  scratch->d.func.nargs = nargs;
+```
+
+もっとも基礎的な組み込み関数の場合、`fmgr_info` -> `fmgr_info_cxt_security` -> `fmgr_isbuiltin`と呼び出され、`fmgr_isbuiltin`の中で関数のアドレスを解決する。関数のアドレスは`fmgr_builtins`に格納されている。`fmgr_builtins`は"src/backend/utils/Gen_fmgrtab.pl"からbuild時に生成される、"src/backend/utils/fmgrtab.c"というファイルで定義されている。
+
+```c
+const FmgrBuiltin fmgr_builtins[] = {
+  { 31, "byteaout", 1, true, false, byteaout },
+  { 33, "charout", 1, true, false, charout },
+  { 34, "namein", 1, true, false, namein },
+  { 35, "nameout", 1, true, false, nameout },
+  { 38, "int2in", 1, true, false, int2in },
+...
+```
 
 ```
   else
