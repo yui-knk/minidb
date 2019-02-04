@@ -4,8 +4,8 @@ grammar;
 
 pub Statement: Stmt = {
     // SELECT expr FROM dbname "." tablename
-    Select_T <e:Expression> From_T <fi: From_Item> => {
-        Stmt::SelectStmt(e, fi.0, fi.1)
+    Select_T <e:Expression> From_T <fi: From_Item> <ow:OptWhere> => {
+        Stmt::SelectStmt(e, fi.0, fi.1, ow)
     },
     // INSERT INTO dbname "." tablename "(" keys ")" VALUES value_lists
     Insert_T Into_T <fi: From_Item> "(" <li1:Ident_List> ")" Values_T <li2:Value_Lists> => {
@@ -21,6 +21,11 @@ pub Statement: Stmt = {
 Expression: Box<Expr> = {
     "*" => Box::new(Expr::All),
     "count()" => Box::new(Expr::Count),
+}
+
+OptWhere: Option<Box<Expr>> = {
+    Where_T <b:Bool> => Some(b),
+    () => None,
 }
 
 Select_T: () = {
@@ -53,6 +58,11 @@ From_T: () = {
     "FROM",
 }
 
+Where_T: () = {
+    "where",
+    "WHERE",
+}
+
 Values_T: () = {
     "values",
     "VALUES",
@@ -60,6 +70,11 @@ Values_T: () = {
 
 Comma: () = {
     ",",
+}
+
+Bool: Box<Expr> = {
+    "true" => Box::new(Expr::Bool(true)),
+    "false" => Box::new(Expr::Bool(false)),
 }
 
 From_Item: (String, String) = {

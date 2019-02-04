@@ -28,7 +28,7 @@ impl<'a> Executor<'a> {
         let stmt = parser.parse(query).expect("Invalid syntax");
         
         match stmt {
-            Stmt::SelectStmt(expr, dbname, tablename) => {
+            Stmt::SelectStmt(expr, dbname, tablename, where_clause) => {
                 match *expr {
                     Expr::All => {
                         let select_from = SelectFromCommnad::new(self.config.clone());
@@ -38,6 +38,9 @@ impl<'a> Executor<'a> {
                         let count = CountCommnad::new(self.config.clone());
                         count.execute(&dbname, &tablename, self.cmgr)
                     },
+                    Expr::Bool(_) => {
+                        panic!("Unknown expr ({:?})", expr);
+                    }
                 }
             },
             Stmt::InsertStmt(dbname, tablename, keys, value_lists) => {
