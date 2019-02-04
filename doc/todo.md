@@ -17,3 +17,4 @@
 * [ ] Null value support
 * [ ] WAL support
 * [ ] Multi segment support
+

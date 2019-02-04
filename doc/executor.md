@@ -397,3 +397,157 @@ Delete処理は`ExecDelete`関数("nodeModifyTable.c")によって行われる�
   HeapTupleHeaderSetXmax(tp.t_data, new_xmax);
   HeapTupleHeaderSetCmax(tp.t_data, cid, iscombo);
 ```
+
+# whereを実装する
+
+文法について確認する("gram.y")。
+
+```
+where_clause:
+      WHERE a_expr              { $$ = $2; }
+      | /*EMPTY*/               { $$ = NULL; }
+    ;
+
+a_expr:   c_expr                  { $$ = $1; }
+...
+      | a_expr '=' a_expr
+        { $$ = (Node *) makeSimpleA_Expr(AEXPR_OP, "=", $1, $3, @2); }
+
+c_expr:   columnref               { $$ = $1; }
+      | AexprConst              { $$ = $1; }
+
+/*
+ * Constants
+ */
+AexprConst: Iconst
+        {
+          $$ = makeIntConst($1, @1);
+        }
+      | FCONST
+        {
+          $$ = makeFloatConst($1, @1);
+        }
+```
+
+`makeSimpleA_Expr`では`makeNode(A_Expr)`がよばれるので、`T_A_Expr`というtypeをもったノード(`A_Expr`)がつくられる。
+このようにして作られた`where_clause`は`SelectStmt->whereClause`に格納される。この時点では個々の条件は`T_A_Expr`というtypeをもったノード(`A_Expr` "parsenodes.h")である。
+
+```
+simple_select:
+      SELECT opt_all_clause opt_target_list
+      into_clause from_clause where_clause
+      group_clause having_clause window_clause
+        {
+          SelectStmt *n = makeNode(SelectStmt);
+          n->targetList = $3;
+          n->intoClause = $4;
+          n->fromClause = $5;
+          n->whereClause = $6;
+          n->groupClause = $7;
+          n->havingClause = $8;
+          n->windowClause = $9;
+          $$ = (Node *)n;
+        }
+```
+
+"gram.y"で生成された木は、次に`pg_analyze_and_rewrite`にかけられる(main.md参照)。
+`pg_analyze_and_rewrite` -> `parse_analyze` -> `transformTopLevelStmt` -> `transformOptionalSelectInto` -> `transformStmt` と呼び出しが続き、`transformStmt`ではNodeのtypeによる分岐がはいる。`T_SelectStmt`の場合の`transformSelectStmt`をみていくと、`transformWhereClause` -> `transformWhereClause` -> `transformExpr` -> `transformExprRecurse` と呼び出しが続く。`transformExprRecurse`では式の種類による分類がある。`T_A_Expr`かつ`AEXPR_OP`のケースでは`transformAExprOp`がよばれる。もっとも汎用的なケースでは`make_op`がよばれ、この戻り値は`OpExpr`Node("primnodes.h")となる。
+ここで`transformSelectStmt`の戻り値は`Query`("parsenodes.h")となっており、`transformWhereClause`の結果はjoinの情報とともに`FromExpr`にくるまれて、`Query->jointree`に格納される。
+
+```c
+/*****************************************************************************
+ *  Query Tree
+ *****************************************************************************/
+
+/*
+ * Query -
+ *    Parse analysis turns all statements into a Query tree
+ *    for further processing by the rewriter and planner.
+```
+
+```c
+  qry->jointree = makeFromExpr(pstate->p_joinlist, qual);
+```
+
+`pg_analyze_and_rewrite`で処理された木は、次に`pg_plan_queries`にかけられる(main.md参照)。ここでの処理はQuery optimizeがメインとなる。
+`pg_plan_queries`のコメントにあるように戻り値は`PlannedStmt`Node("plannodes.h")になる。
+処理は`pg_plan_queries` -> `pg_plan_query` -> `planner` -> `standard_planner`と進む。`subquery_planner`はsub queryの処理を再帰的に行うことを想定したentrypointであり、top levelのstmtを処理する`planner`も主な処理は`standard_planner`で行う。
+`standard_planner`のうち、`where`(事前の書き換えでここでは`Query->jointree`に格納されている)に関連する処理に注目すると、`preprocess_qual_conditions`という関数を呼び出していることがわかる(が、ここでは構造が大きく変わったりはしていなさそう)。
+
+`pg_plan_queries`で処理された木は実行に移される(main.md参照)。`Portal`に対する一連の処理の中で`ExecutorStart`が実行される。`ExecutorStart` -> `standard_ExecutorStart` -> `InitPlan` -> `ExecInitNode`と処理が続く。
+ここの`ExecInitNode`は`Plan`をもとに`PlanState`("execnodes.h")を作成する。`ExecInitNode`の中ではNodeの種類に応じて`ExecInitXXX`という関数が呼ばれる。SeqScanの場合は`ExecInitSeqScan`がよばれる。この関数の最後で`PlanState->qual`がセットされる。
+
+```c
+  /*
+   * initialize child expressions
+   */
+  scanstate->ss.ps.qual =
+    ExecInitQual(node->plan.qual, (PlanState *) scanstate);
+```
+
+`InitPlan`をみるとわかるとおり、`QueryDesc *queryDesc`が各種構造体のハブになっている。例えば`InitPlan`では`Plan`をもとに`PlanState`を作成するが、これは`queryDesc->plannedstmt->planTree`をもとに作成した`PlanState`を`queryDesc->planstate`に格納する処理となっている(`PlannedStmt`が`struct Plan *planTree;`を所有している)。
+
+`ExecInitQual`の中でexpressionがコンパイルされる様子をみていく。`ExecInitQual`は`ExprState`をアロケートし初期化する。そして`ExecInitExprRec`を呼び出してexpressionをstepに変換して`ExprState`に積んでいく。そして最後に`ExecReadyExpr`を呼び出す。`ExecReadyExpr`は`ExecReadyInterpretedExpr`を呼び出す。
+`ExecReadyInterpretedExpr`では`state->evalfunc = ExecInterpExprStillValid;`とセットしたのちに、stepに応じて`ExprState->evalfunc_private`を決定する。ここで最も汎用的な`evalfunc_private`は`ExecInterpExpr`である。
+なおここで設定された`evalfunc`は`ExecEvalExpr`もしくは`ExecEvalExprSwitchContext`を使って呼び出すことができる。
+
+`ExecScan` (`qual = node->ps.qual;`) -> `ExecQual` -> `ExecEvalExprSwitchContext` (`retDatum = state->evalfunc(state, econtext, isNull);`)
+
+"="は実際にはどのような命令になるのか？
+
+`_equalAExpr` `pg_operator.dat` `oper` `pg_proc` `ExecInterpExpr`
+
+`_SPI_prepare_plan`
+  * `pg_parse_query`
+  * 
+
+
+```
+  else
+  {
+    /* otherwise, binary operator */
+    ltypeId = exprType(ltree);
+    rtypeId = exprType(rtree);
+    tup = oper(pstate, opname, ltypeId, rtypeId, false, location);
+  }
+
+  opform = (Form_pg_operator) GETSTRUCT(tup);
+...
+  result->opfuncid = opform->oprcode;
+
+```
+
+# 有益コメント集
+
+コメントがかわいい。
+
+```
+/*
+ * Productions that can be used in both a_expr and b_expr.
+ *
+ * Note: productions that refer recursively to a_expr or b_expr mostly
+ * cannot appear here.  However, it's OK to refer to a_exprs that occur
+ * inside parentheses, such as function arguments; that cannot introduce
+ * ambiguity to the b_expr syntax.
+ */
+c_expr:   columnref               { $$ = $1; }
+```
+
+うける
+
+```
+  /*
+   * Special-case "foo = NULL" and "NULL = foo" for compatibility with
+   * standards-broken products (like Microsoft's).  Turn these into IS NULL
+   * exprs. (If either side is a CaseTestExpr, then the expression was
+   * generated internally from a CASE-WHEN expression, and
+   * transform_null_equals does not apply.)
+   */
+```
+
+```
+ * When using direct threading, ExecReadyInterpretedExpr will replace
+ * each step's opcode field with the address of the relevant code block and
+ * ExprState->flags will contain EEO_FLAG_DIRECT_THREADED to remember that
+ * that's been done.
+```
