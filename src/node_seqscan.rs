@@ -9,6 +9,11 @@ use off::{FirstOffsetNumber};
 use storage_manager::{RelationData};
 use ast::Expr;
 
+struct ExprEvaluator<'a> {
+    currentTuple: &'a TupleTableSlot,
+    expr: &'a Expr,
+}
+
 struct PlanState {
 
 }
@@ -47,6 +52,32 @@ struct HeapScanDescData<'a> {
     rs_cblock: BlockNumber,
     // current buffer in scan, if any
     rs_cbuf: Buffer,
+}
+
+impl<'a> ExprEvaluator<'a> {
+    fn new(
+        currentTuple: &'a TupleTableSlot,
+        expr: &'a Expr
+    ) -> ExprEvaluator<'a> {
+        ExprEvaluator {
+            currentTuple: currentTuple,
+            expr: expr
+        }
+    }
+
+    fn eval(&self) -> bool {
+        match self.expr {
+            Expr::Bool(b) => {
+                return b.clone();
+            },
+            Expr::All => {
+                panic!("Unknown expr ({:?})", self.expr);
+            },
+            Expr::Count => {
+                panic!("Unknown expr ({:?})", self.expr);
+            }
+        }
+    }
 }
 
 impl<'a> ScanState<'a> {
@@ -197,16 +228,7 @@ impl<'a> ScanState<'a> {
             return true;
         }
 
-        match self.qual.as_ref().unwrap().as_ref() {
-            Expr::Bool(b) => {
-                return b.clone();
-            },
-            Expr::All => {
-                panic!("Unknown qual ({:?})", self.qual);
-            },
-            Expr::Count => {
-                panic!("Unknown qual ({:?})", self.qual);
-            }
-        }
+        let evaluator = ExprEvaluator::new(self.ss_ScanTupleSlot.as_ref(), self.qual.as_ref().unwrap().as_ref());
+        evaluator.eval()
     }
 }
