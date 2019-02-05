@@ -13,4 +13,5 @@ pub enum Expr {
     All,   // "*"
     Count, // "count()"
     Bool(bool),
+    OpEq(Box<Expr>, Box<Expr>), // "="
 }

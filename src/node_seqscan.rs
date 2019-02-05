@@ -54,6 +54,10 @@ struct HeapScanDescData<'a> {
     rs_cbuf: Buffer,
 }
 
+enum Value {
+    Bool(bool)
+}
+
 impl<'a> ExprEvaluator<'a> {
     fn new(
         currentTuple: &'a TupleTableSlot,
@@ -66,9 +70,20 @@ impl<'a> ExprEvaluator<'a> {
     }
 
     fn eval(&self) -> bool {
-        match self.expr {
+        match *self.eval_rec(self.expr) {
+            Value::Bool(b) => b
+        }
+    }
+
+    fn eval_rec(&self, expr: &Expr) -> Box<Value> {
+        match expr {
             Expr::Bool(b) => {
-                return b.clone();
+                Box::new(Value::Bool(b.clone()))
+            },
+            Expr::OpEq(e1, e2) => {
+                let v1 = self.eval_rec(e1);
+                let v2 = self.eval_rec(e2);
+                Box::new(Value::Bool(self.op_eq(v1.as_ref(), v2.as_ref())))
             },
             Expr::All => {
                 panic!("Unknown expr ({:?})", self.expr);
@@ -76,6 +91,13 @@ impl<'a> ExprEvaluator<'a> {
             Expr::Count => {
                 panic!("Unknown expr ({:?})", self.expr);
             }
+        }
+    }
+
+    fn op_eq(&self, v1: &Value, v2: &Value) -> bool {
+        match (v1, v2) {
+            (Value::Bool(b1), Value::Bool(b2)) => b1 == b2,
+            _ => false
         }
     }
 }

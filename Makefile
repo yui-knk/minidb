@@ -41,5 +41,11 @@ count_true:
 count_false:
 	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) execute "select count() from $(DBNAME).$(TABLENAME) where false"
 
+count_true_false:
+	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) execute "select count() from $(DBNAME).$(TABLENAME) where true = false"
+
+count_false_false:
+	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) execute "select count() from $(DBNAME).$(TABLENAME) where false = false"
+
 delete:
 	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) execute "delete from $(DBNAME).$(TABLENAME)"

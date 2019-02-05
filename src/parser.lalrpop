@@ -3,8 +3,8 @@ use ast::{Stmt, Expr};
 grammar;
 
 pub Statement: Stmt = {
-    // SELECT expr FROM dbname "." tablename
-    Select_T <e:Expression> From_T <fi: From_Item> <ow:OptWhere> => {
+    // SELECT expr FROM dbname "." tablename (where_clause)
+    Select_T <e:TargetList> From_T <fi: From_Item> <ow:OptWhere> => {
         Stmt::SelectStmt(e, fi.0, fi.1, ow)
     },
     // INSERT INTO dbname "." tablename "(" keys ")" VALUES value_lists
@@ -18,14 +18,23 @@ pub Statement: Stmt = {
 }
 
 // expr: "*" | count()
-Expression: Box<Expr> = {
+TargetList: Box<Expr> = {
     "*" => Box::new(Expr::All),
     "count()" => Box::new(Expr::Count),
 }
 
 OptWhere: Option<Box<Expr>> = {
-    Where_T <b:Bool> => Some(b),
+    Where_T <e:Expression0> => Some(e),
     () => None,
+}
+
+Expression0: Box<Expr> = {
+    <e1:Expression0> "=" <e2:Expression1> => Box::new(Expr::OpEq(e1, e2)),
+    <e:Expression1> => e,
+}
+
+Expression1: Box<Expr> = {
+    <b:Bool> => b,
 }
 
 Select_T: () = {

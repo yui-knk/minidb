@@ -41,6 +41,9 @@ impl<'a> Executor<'a> {
                     Expr::Bool(_) => {
                         panic!("Unknown expr ({:?})", expr);
                     }
+                    Expr::OpEq(..) => {
+                        panic!("Unknown expr ({:?})", expr);
+                    }
                 }
             },
             Stmt::InsertStmt(dbname, tablename, keys, value_lists) => {
@@ -80,7 +83,8 @@ mod tests {
     #[test]
     fn select_stmt_with_where() {
         assert!(parser::StatementParser::new().parse("select * from db.tbl where true").is_ok());
-        assert!(parser::StatementParser::new().parse("select count() from db.tbl where false").is_ok());
+        assert!(parser::StatementParser::new().parse("select * from db.tbl where false").is_ok());
+        assert!(parser::StatementParser::new().parse("select * from db.tbl where false = true").is_ok());
     }
 
     #[test]
