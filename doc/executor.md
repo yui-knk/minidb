@@ -668,10 +668,48 @@ makeColumnRef(char *colname, List *indirection,
                      0, NULL);
 ```
 
-`scanRTEForColumn`のなかでは`rte->eref->colnames`を順番にみながら、`const char *colname`と一致するものを探し、Var Nodeをつくる。Var Nodeのレベルでは`colname`ではなく`attrno`という数値になっている。
+`scanRTEForColumn`のなかでは`rte->eref->colnames`を順番にみながら、`const char *colname`と一致するものを探し、Var Nodeをつくる。Var Nodeのレベルでは`colname`ではなく`attrno`という数値になっている。`varno`は`pstate->p_rtable`のリストの何個目の要素に当該カラムが含まれているかを表す。`make_var`のなかで`RTERangeTablePosn`を使って解決している。
 
+```c
+typedef struct Var
+{
+  Expr    xpr;
+  Index   varno;      /* index of this var's relation in the range
+                 * table, or INNER_VAR/OUTER_VAR/INDEX_VAR */
+  AttrNumber  varattno;   /* attribute number of this var, or zero for
+                 * all attrs ("whole-row Var") */
+  ...
+```
 
-# ParseState
+T_Var Nodeは`ExecInitExprRec`によって`EEOP_SCAN_VAR`などのstepになる。stepの評価は以下のようになっており、現在のtupleの該当するカラムをindexアクセスする。
+
+```c
+    EEO_CASE(EEOP_SCAN_VAR)
+    {
+      int     attnum = op->d.var.attnum;
+
+      /* See EEOP_INNER_VAR comments */
+
+      Assert(attnum >= 0 && attnum < scanslot->tts_nvalid);
+      *op->resvalue = scanslot->tts_values[attnum];
+      *op->resnull = scanslot->tts_isnull[attnum];
+
+      EEO_NEXT();
+    }
+```
+
+ここで`scanslot`は`econtext->ecxt_scantuple`のことである。`ExprContext`は式のevaluationに必要な情報を保持している。`ecxt_scantuple`は現在処理しているtupleを指しており、例えば`ExecScan`のなかでtupleをfetchするごとに代入される。
+
+```c
+    slot = ExecScanFetch(node, accessMtd, recheckMtd);
+    ...
+    /*
+     * place the current tuple into the expr context
+     */
+    econtext->ecxt_scantuple = slot;
+```
+
+## ParseState
 
 `ParseState`はparse analysis時のコンテキストを管理するもので、joinのリストやrange tableのリストをもっている。
 
@@ -706,12 +744,26 @@ parse_analyze(RawStmt *parseTree, const char *sourceText,
 `ParseState`のメンバーのうち、あとのフェーズで`ColumnRef`などのRelation解決に使われるのが`p_namespace`である。`p_namespace`は`transformFromClause`などで拡張される。`transformFromClause`の場合、`transformFromClause` -> `transformFromClauseItem` -> `transformTableEntry` -> `addRangeTableEntry` (ここで戻り値の RangeTblEntry Node を作成) -> `parserOpenTable` -> `heap_openrv_extended` -> `relation_openrv_extended` -> `RangeVarGetRelid` -> `RangeVarGetRelidExtended`とよびだして、`RangeVar`をもとにRelationのOidを解決する。`relation_openrv_extended`でOidからRelationをひき、`addRangeTableEntry`でRangeTblEntry Nodeに必要な情報をRelationからコピーする。直近必要な情報としてカラム列に関する情報(`rte->eref->colnames`)がある。これは`buildRelationAliases`のなかで生成される。
 
 ```c
+RangeTblEntry *
+addRangeTableEntry(ParseState *pstate,
+           RangeVar *relation,
+           Alias *alias,
+           bool inh,
+           bool inFromCl)
+{
+  ...
   /*
    * Build the list of effective column names using user-supplied aliases
    * and/or actual column names.
    */
   rte->eref = makeAlias(refname, NIL);
   buildRelationAliases(rel->rd_att, alias, rte->eref);
+  ...
+  /*
+   * Add completed RTE to pstate's range table list, but not to join list
+   * nor namespace --- caller must do that if appropriate.
+   */
+  pstate->p_rtable = lappend(pstate->p_rtable, rte);
 ```
 
 また`addRangeTableEntry`では`pstate->p_rtable`に新しく作った`RangeTblEntry`をappendする。
