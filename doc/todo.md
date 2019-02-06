@@ -9,12 +9,12 @@
 * [x] Delete operation support
 * [x] Support where condition clause for select
 * [ ] Support where condition clause for delete
+* [ ] Update operation support
+* [ ] Index support
 * [ ] Support where condition clause for update
 * [ ] Implement nice internal value representation
-* [ ] Update operation support
 * [ ] Add dirty flag to pages to avoid needless writing when drop the page
 * [ ] Implement ItemPointerData (tuple id) in HeapTupleHeaderData to support delete operation
-* [ ] Index support
 * [ ] Manual vacuum support
 * [ ] Trait for node executions
 * [ ] Null value support
