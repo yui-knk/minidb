@@ -7,8 +7,11 @@
 * [x] Implement parser
 * [x] Support multi rows insert syntax
 * [x] Delete operation support
+* [x] Support where condition clause for select
+* [ ] Support where condition clause for delete
+* [ ] Support where condition clause for update
+* [ ] Implement nice internal value representation
 * [ ] Update operation support
-* [ ] Support where condition clause
 * [ ] Add dirty flag to pages to avoid needless writing when drop the page
 * [ ] Implement ItemPointerData (tuple id) in HeapTupleHeaderData to support delete operation
 * [ ] Index support
