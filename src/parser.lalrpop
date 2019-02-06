@@ -35,6 +35,8 @@ Expression0: Box<Expr> = {
 
 Expression1: Box<Expr> = {
     <b:Bool> => b,
+    <n:Number> => n,
+    <c:ColId> => c,
 }
 
 Select_T: () = {
@@ -79,6 +81,14 @@ Values_T: () = {
 
 Comma: () = {
     ",",
+}
+
+ColId: Box<Expr> = {
+    <i:Ident> => Box::new(Expr::ColumnRef(i))
+}
+
+Number: Box<Expr> = {
+    <s:NumString> => Box::new(Expr::Number(s.parse::<i32>().unwrap()))
 }
 
 Bool: Box<Expr> = {

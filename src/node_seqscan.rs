@@ -55,7 +55,8 @@ struct HeapScanDescData<'a> {
 }
 
 enum Value {
-    Bool(bool)
+    Bool(bool),
+    String(String),
 }
 
 impl<'a> ExprEvaluator<'a> {
@@ -71,7 +72,8 @@ impl<'a> ExprEvaluator<'a> {
 
     fn eval(&self) -> bool {
         match *self.eval_rec(self.expr) {
-            Value::Bool(b) => b
+            Value::Bool(b) => b,
+            Value::String(s) => panic!("Value::String is not supported as result. ({:?})", s),
         }
     }
 
@@ -80,10 +82,18 @@ impl<'a> ExprEvaluator<'a> {
             Expr::Bool(b) => {
                 Box::new(Value::Bool(b.clone()))
             },
+            Expr::Number(n) => {
+                Box::new(Value::String(n.to_string()))
+            },
             Expr::OpEq(e1, e2) => {
                 let v1 = self.eval_rec(e1);
                 let v2 = self.eval_rec(e2);
                 Box::new(Value::Bool(self.op_eq(v1.as_ref(), v2.as_ref())))
+            },
+            Expr::ColumnRef(col_name) => {
+                let i = self.currentTuple.get_index_from_name(col_name);
+                let c = self.currentTuple.get_column(i);
+                Box::new(Value::String(c.as_string()))
             },
             Expr::All => {
                 panic!("Unknown expr ({:?})", self.expr);
@@ -97,6 +107,7 @@ impl<'a> ExprEvaluator<'a> {
     fn op_eq(&self, v1: &Value, v2: &Value) -> bool {
         match (v1, v2) {
             (Value::Bool(b1), Value::Bool(b2)) => b1 == b2,
+            (Value::String(s1), Value::String(s2)) => s1 == s2,
             _ => false
         }
     }

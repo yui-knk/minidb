@@ -13,5 +13,7 @@ pub enum Expr {
     All,   // "*"
     Count, // "count()"
     Bool(bool),
+    Number(i32),
     OpEq(Box<Expr>, Box<Expr>), // "="
+    ColumnRef(String), // column name
 }

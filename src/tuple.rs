@@ -132,6 +132,10 @@ impl TupleTableSlot {
         self.tuple_desc.attrs_count()
     }
 
+    pub fn get_index_from_name(&self, name: &str) -> usize {
+        self.tuple_desc.attrs.iter().position(|ref a| a.name == name).unwrap()
+    }
+
     // index is 0-origin.
     pub fn get_column(&self, index: usize) -> Box<TypeValue> {
         self.check_index(index);

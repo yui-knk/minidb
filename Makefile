@@ -47,5 +47,8 @@ count_true_false:
 count_false_false:
 	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) execute "select count() from $(DBNAME).$(TABLENAME) where false = false"
 
+count_age_12:
+	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) execute "select count() from $(DBNAME).$(TABLENAME) where age = 12"
+
 delete:
 	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) execute "delete from $(DBNAME).$(TABLENAME)"

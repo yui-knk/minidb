@@ -40,10 +40,16 @@ impl<'a> Executor<'a> {
                     },
                     Expr::Bool(_) => {
                         panic!("Unknown expr ({:?})", expr);
-                    }
+                    },
+                    Expr::Number(_) => {
+                        panic!("Unknown expr ({:?})", expr);
+                    },
                     Expr::OpEq(..) => {
                         panic!("Unknown expr ({:?})", expr);
-                    }
+                    },
+                    Expr::ColumnRef(..) => {
+                        panic!("Unknown expr ({:?})", expr);
+                    },
                 }
             },
             Stmt::InsertStmt(dbname, tablename, keys, value_lists) => {
