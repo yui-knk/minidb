@@ -608,6 +608,132 @@ const FmgrBuiltin fmgr_builtins[] = {
 
 ```
 
+# `where id = 10` を実装する
+
+gram.yで作られるNodeは`ColumnRef`である。
+
+```c
+where_clause:
+      WHERE a_expr              { $$ = $2; }
+      | /*EMPTY*/               { $$ = NULL; }
+    ;
+
+a_expr:   c_expr                  { $$ = $1; }
+
+c_expr:   columnref               { $$ = $1; }
+
+columnref:  ColId
+        {
+          $$ = makeColumnRef($1, NIL, @1, yyscanner);
+        }
+      | ColId indirection
+        {
+          $$ = makeColumnRef($1, $2, @1, yyscanner);
+        }
+    ;
+
+static Node *
+makeColumnRef(char *colname, List *indirection,
+        int location, core_yyscan_t yyscanner)
+{
+  /*
+   * Generate a ColumnRef node, with an A_Indirection node added if there
+   * is any subscripting in the specified indirection list.  However,
+   * any field selection at the start of the indirection list must be
+   * transposed into the "fields" part of the ColumnRef node.
+   */
+  ColumnRef  *c = makeNode(ColumnRef);
+```
+
+`transformExprRecurse`では`transformColumnRef`がよばれる。`ColumnRef`は`table.id`や`db.table.id`などの指定が可能だが、ここでは`id`のケースをみていく。
+`transformColumnRef` -> `colNameToVar` -> `scanRTEForColumn` -> `make_var` -> `makeVar`と呼び出しが続き、`makeVar`でVar Node("primnodes.h")が作られる。
+`transformColumnRef`の時点では引数は`ColumnRef *cref`である。つまりこの時点ではカラム名の文字列が渡ってくる。`colNameToVar`の時点の引数は`const char *colname`であるので、ここでもカラム名は文字列である。`colNameToVar`のなかでは`pstate->p_namespace`リストをイテレートしながら`scanRTEForColumn`を呼び出していくが、そのとき`nsitem->p_rte`を取り出して`scanRTEForColumn`に渡している。
+
+```c
+    foreach(l, pstate->p_namespace)
+    {
+      ParseNamespaceItem *nsitem = (ParseNamespaceItem *) lfirst(l);
+      RangeTblEntry *rte = nsitem->p_rte;
+      Node     *newresult;
+
+      /* Ignore table-only items */
+      if (!nsitem->p_cols_visible)
+        continue;
+      /* If not inside LATERAL, ignore lateral-only items */
+      if (nsitem->p_lateral_only && !pstate->p_lateral_active)
+        continue;
+
+      /* use orig_pstate here to get the right sublevels_up */
+      newresult = scanRTEForColumn(orig_pstate, rte, colname, location,
+                     0, NULL);
+```
+
+`scanRTEForColumn`のなかでは`rte->eref->colnames`を順番にみながら、`const char *colname`と一致するものを探し、Var Nodeをつくる。Var Nodeのレベルでは`colname`ではなく`attrno`という数値になっている。
+
+
+# ParseState
+
+`ParseState`はparse analysis時のコンテキストを管理するもので、joinのリストやrange tableのリストをもっている。
+
+```c
+/*
+ * State information used during parse analysis
+ *
+...
+struct ParseState
+{
+  struct ParseState *parentParseState;  /* stack link */
+  const char *p_sourcetext; /* source text, or NULL if not available */
+  List     *p_rtable;   /* range table so far */
+  List     *p_joinexprs;  /* JoinExprs for RTE_JOIN p_rtable entries */
+  List     *p_joinlist;   /* join items so far (will become FromExpr
+                 * node's fromlist) */
+  List     *p_namespace;  /* currently-referenceable RTEs (List of
+                 * ParseNamespaceItem) */
+```
+
+`ParseState`は`parse_analyze`のタイミングでつくられる。
+
+```c
+Query *
+parse_analyze(RawStmt *parseTree, const char *sourceText,
+        Oid *paramTypes, int numParams,
+        QueryEnvironment *queryEnv)
+{
+  ParseState *pstate = make_parsestate(NULL);
+```
+
+`ParseState`のメンバーのうち、あとのフェーズで`ColumnRef`などのRelation解決に使われるのが`p_namespace`である。`p_namespace`は`transformFromClause`などで拡張される。`transformFromClause`の場合、`transformFromClause` -> `transformFromClauseItem` -> `transformTableEntry` -> `addRangeTableEntry` (ここで戻り値の RangeTblEntry Node を作成) -> `parserOpenTable` -> `heap_openrv_extended` -> `relation_openrv_extended` -> `RangeVarGetRelid` -> `RangeVarGetRelidExtended`とよびだして、`RangeVar`をもとにRelationのOidを解決する。`relation_openrv_extended`でOidからRelationをひき、`addRangeTableEntry`でRangeTblEntry Nodeに必要な情報をRelationからコピーする。直近必要な情報としてカラム列に関する情報(`rte->eref->colnames`)がある。これは`buildRelationAliases`のなかで生成される。
+
+```c
+  /*
+   * Build the list of effective column names using user-supplied aliases
+   * and/or actual column names.
+   */
+  rte->eref = makeAlias(refname, NIL);
+  buildRelationAliases(rel->rd_att, alias, rte->eref);
+```
+
+また`addRangeTableEntry`では`pstate->p_rtable`に新しく作った`RangeTblEntry`をappendする。
+
+`transformFromClauseItem`ではいま作った`RangeTblEntry`をもとに`ParseNamespaceItem`をつくり、`namespace`の指しているアドレスに代入する。
+
+```c
+    /* Check if it's a CTE or tuplestore reference */
+    rte = getRTEForSpecialRelationTypes(pstate, rv);
+
+    /* if not found above, must be a table reference */
+    if (!rte)
+      rte = transformTableEntry(pstate, rv);
+
+    /* assume new rte is at end */
+    rtindex = list_length(pstate->p_rtable);
+    Assert(rte == rt_fetch(rtindex, pstate->p_rtable));
+    *top_rte = rte;
+    *top_rti = rtindex;
+    *namespace = list_make1(makeDefaultNSItem(rte));
+```
+
 # 有益コメント集
 
 コメントがかわいい。
