@@ -20,4 +20,5 @@
 * [ ] Null value support
 * [ ] WAL support
 * [ ] Multi segment support
-
+* [ ] Join support
+* [ ] Group by support
