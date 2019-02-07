@@ -122,7 +122,7 @@ impl DeleteCommnad {
         }
     }
 
-    pub fn execute(&self, dbname: &str, table_name: &str, cmgr: &CatalogManager) -> Result<(), String> {
+    pub fn execute(&self, dbname: &str, table_name: &str, cmgr: &CatalogManager, qual: &Option<Box<Expr>>) -> Result<(), String> {
         let db_oid = cmgr.database_rm.find_mini_database_oid(dbname)
                        .expect(&format!("{} database should be defined.", dbname));
         let table_oid = cmgr.class_rm.find_mini_class_oid(db_oid, table_name)
@@ -131,7 +131,7 @@ impl DeleteCommnad {
         let mut rmgr = RelationManager::new(self.config.clone());
         let relation = rmgr.get_relation(db_oid, table_oid);
         let mut bm = BufferManager::new(1, self.config.clone());
-        let scan = ScanState::new(relation, &rm, &mut bm, &None);
+        let scan = ScanState::new(relation, &rm, &mut bm, qual);
         let mut delete = DeleteState::new(relation, scan);
 
         delete.exec_delete(&mut bm);

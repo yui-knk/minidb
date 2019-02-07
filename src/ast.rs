@@ -4,8 +4,8 @@ pub enum Stmt {
     SelectStmt(Box<Expr>, String, String, Option<Box<Expr>>),
     // dbname, tablename, keys, values
     InsertStmt(String, String, Vec<String>, Vec<Vec<String>>),
-    // dbname, tablename
-    DeleteStmt(String, String),
+    // dbname, tablename, where_clause
+    DeleteStmt(String, String, Option<Box<Expr>>),
 }
 
 #[derive(Debug)]

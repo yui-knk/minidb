@@ -68,9 +68,9 @@ impl<'a> Executor<'a> {
 
                 Ok(())
             },
-            Stmt::DeleteStmt(dbname, tablename) => {
+            Stmt::DeleteStmt(dbname, tablename, where_clause) => {
                 let delete = DeleteCommnad::new(self.config.clone());
-                delete.execute(&dbname, &tablename, self.cmgr)
+                delete.execute(&dbname, &tablename, self.cmgr, &where_clause)
             },
         }
     }

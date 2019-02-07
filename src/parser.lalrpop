@@ -12,8 +12,8 @@ pub Statement: Stmt = {
         Stmt::InsertStmt(fi.0, fi.1, li1, li2)
     },
     // DELETE FROM dbname "." tablename
-    Delete_T From_T <fi: From_Item> => {
-        Stmt::DeleteStmt(fi.0, fi.1)
+    Delete_T From_T <fi: From_Item> <ow:OptWhere> => {
+        Stmt::DeleteStmt(fi.0, fi.1, ow)
     },
 }
 

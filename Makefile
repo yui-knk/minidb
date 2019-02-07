@@ -52,3 +52,6 @@ count_age_12:
 
 delete:
 	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) execute "delete from $(DBNAME).$(TABLENAME)"
+
+delete_age_12:
+	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) execute "delete from $(DBNAME).$(TABLENAME) where age = 12"
