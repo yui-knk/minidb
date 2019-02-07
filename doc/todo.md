@@ -8,7 +8,7 @@
 * [x] Support multi rows insert syntax
 * [x] Delete operation support
 * [x] Support where condition clause for select
-* [ ] Support where condition clause for delete
+* [x] Support where condition clause for delete
 * [ ] Update operation support
 * [ ] Index support
 * [ ] Support where condition clause for update
