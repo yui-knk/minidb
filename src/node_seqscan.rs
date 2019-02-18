@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 use std::cell::RefCell;
+use std::sync::RwLock;
 
 use catalog::catalog::RecordManeger;
 use catalog::mini_attribute::MiniAttributeRecord;
@@ -28,6 +29,7 @@ pub struct ScanState<'a> {
     ss_ScanTupleSlot: Box<TupleTableSlot>,
     // The field of PlanState in pg.
     qual: &'a Option<Box<Expr>>,
+    bufmrg: &'a RwLock<BufferManager>,
 }
 
 #[derive(Debug)]
@@ -118,7 +120,7 @@ impl<'a> ScanState<'a> {
     pub fn new(
         relation: &'a RefCell<RelationData>,
         rm: &RecordManeger<MiniAttributeRecord>,
-        bufmrg: &mut BufferManager,
+        bufmrg: &'a RwLock<BufferManager>,
         qual: &'a Option<Box<Expr>>
     ) -> ScanState<'a> {
         let rnode = &relation.borrow().smgr_rnode;
@@ -126,7 +128,7 @@ impl<'a> ScanState<'a> {
         let attrs_len = attrs.iter().fold(0, |acc, attr| acc + attr.len) as u32;
         let mut tuple = HeapTupleData::new(attrs_len);
         ::tuple::item_pointer_set_invalid(&mut tuple.t_self);
-        let rs_nblocks = bufmrg.relation_get_number_of_blocks(&relation.borrow());
+        let rs_nblocks = bufmrg.write().unwrap().relation_get_number_of_blocks(&relation.borrow());
 
         let scan_desc = HeapScanDescData {
             rs_rd: relation,
@@ -148,13 +150,14 @@ impl<'a> ScanState<'a> {
             ss_currentScanDesc: scan_desc,
             ss_ScanTupleSlot: Box::new(slot),
             qual: qual,
+            bufmrg: bufmrg,
         }
     }
 
     // ExecScan in pg.
-    pub fn exec_scan(&mut self, bufmrg: &mut BufferManager) -> Option<&TupleTableSlot> {
+    pub fn exec_scan(&mut self) -> Option<&TupleTableSlot> {
         loop {
-            self.seq_next(bufmrg);
+            self.seq_next();
 
             if self.ss_currentScanDesc.rs_finished {
                 return None;
@@ -169,8 +172,8 @@ impl<'a> ScanState<'a> {
     }
 
     // SeqNext in pg.
-    fn seq_next(&mut self, bufmrg: &mut BufferManager) {
-        self.heap_getnext(bufmrg);
+    fn seq_next(&mut self) {
+        self.heap_getnext();
 
         if !self.ss_currentScanDesc.rs_finished {
             let tuple = &self.ss_currentScanDesc.rs_ctup;
@@ -181,17 +184,17 @@ impl<'a> ScanState<'a> {
     // heap_getnext in pg.
     //
     // Get next tuple
-    fn heap_getnext(&mut self, bufmrg: &mut BufferManager) {
-        self.heapgettup(bufmrg);
+    fn heap_getnext(&mut self, ) {
+        self.heapgettup();
     }
 
     // heapgettup in pg.
-    fn heapgettup(&mut self, bufmrg: &mut BufferManager) {
+    fn heapgettup(&mut self) {
         let scan_desc = &mut self.ss_currentScanDesc;
 
         let mut lineoff = if !scan_desc.rs_inited {
             let page = scan_desc.rs_startblock;
-            let buf = bufmrg.read_buffer(&scan_desc.rs_rd.borrow(), page);
+            let buf = self.bufmrg.write().unwrap().read_buffer(&scan_desc.rs_rd.borrow(), page);
             scan_desc.rs_cbuf = buf;
             scan_desc.rs_cblock = page;
             scan_desc.rs_inited = true;
@@ -200,7 +203,7 @@ impl<'a> ScanState<'a> {
             scan_desc.rs_ctup.get_item_offset_number() + 1
         };
 
-        let lines = bufmrg.get_page(scan_desc.rs_cbuf).page_get_max_offset_number();
+        let lines = self.bufmrg.write().unwrap().get_page(scan_desc.rs_cbuf).page_get_max_offset_number();
         let mut linesleft = lines - lineoff;
 
         loop {
@@ -208,7 +211,8 @@ impl<'a> ScanState<'a> {
             while linesleft > 0 {
                 debug!("linesleft: {}", linesleft);
 
-                let dp = bufmrg.get_page(scan_desc.rs_cbuf);
+                let mrg = self.bufmrg.write().unwrap();
+                let dp = mrg.get_page(scan_desc.rs_cbuf);
                 let mut t_self = ItemPointerData::new();
                 ::tuple::item_pointer_set(&mut t_self, scan_desc.rs_cblock, lineoff);
                 debug!("lp_len {}", dp.get_item_ref(lineoff).lp_len());
@@ -239,9 +243,10 @@ impl<'a> ScanState<'a> {
             {
                 let page = scan_desc.rs_cblock + 1;
                 scan_desc.rs_cblock = page;
-                let buf = bufmrg.read_buffer(&scan_desc.rs_rd.borrow(), page);
+                let buf = self.bufmrg.write().unwrap().read_buffer(&scan_desc.rs_rd.borrow(), page);
                 scan_desc.rs_cbuf = buf;
-                let dp = bufmrg.get_page(scan_desc.rs_cbuf);
+                let mrg = self.bufmrg.write().unwrap();
+                let dp = mrg.get_page(scan_desc.rs_cbuf);
                 lineoff = FirstOffsetNumber;
                 let lines = dp.page_get_max_offset_number();
                 linesleft = lines - lineoff;

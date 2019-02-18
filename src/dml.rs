@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::sync::RwLock;
 
 use config::{Config};
 use tuple::{TupleTableSlot, KeyValue};
@@ -41,13 +42,13 @@ impl InsertIntoCommnad {
                              .expect(&format!("{} table should be defined under the {} database. ", table_name, dbname));
         let rm = &cmgr.attribute_rm;
         let mut rmgr = RelationManager::new(self.config.clone());
-        let mut bm = BufferManager::new(1, self.config.clone());
+        let mut bm = RwLock::new(BufferManager::new(1, self.config.clone()));
         let relation = rmgr.get_relation(db_oid, table_oid);
         let mut slot = TupleTableSlot::new(rm.attributes_clone(db_oid, table_oid));
         slot.update_tuple(key_values)?;
 
-        let mut insert = InsertState::new(relation, &slot);
-        insert.exec_insert(&mut bm);
+        let mut insert = InsertState::new(relation, &slot, &bm);
+        insert.exec_insert();
 
         Ok(())
     }
@@ -68,11 +69,11 @@ impl SelectFromCommnad {
         let rm = &cmgr.attribute_rm;
         let mut rmgr = RelationManager::new(self.config.clone());
         let relation = rmgr.get_relation(db_oid, table_oid);
-        let mut bm = BufferManager::new(1, self.config.clone());
-        let mut scan = ScanState::new(relation, &rm, &mut bm, qual);
+        let bm = RwLock::new(BufferManager::new(1, self.config.clone()));
+        let mut scan = ScanState::new(relation, &rm, &bm, qual);
 
         loop {
-            let opt = scan.exec_scan(&mut bm);
+            let opt = scan.exec_scan();
 
             match opt {
                 Some(slot) => {
@@ -104,11 +105,11 @@ impl CountCommnad {
         let rm = &cmgr.attribute_rm;
         let mut rmgr = RelationManager::new(self.config.clone());
         let relation = rmgr.get_relation(db_oid, table_oid);
-        let mut bm = BufferManager::new(1, self.config.clone());
-        let scan = ScanState::new(relation, &rm, &mut bm, qual);
+        let bm = RwLock::new(BufferManager::new(1, self.config.clone()));
+        let scan = ScanState::new(relation, &rm, &bm, qual);
         let mut count = CountState::new(scan);
 
-        count.exec_agg(&mut bm);
+        count.exec_agg();
         println!("Count: {}", count.result);
 
         Ok(())
@@ -130,11 +131,11 @@ impl DeleteCommnad {
         let rm = &cmgr.attribute_rm;
         let mut rmgr = RelationManager::new(self.config.clone());
         let relation = rmgr.get_relation(db_oid, table_oid);
-        let mut bm = BufferManager::new(1, self.config.clone());
-        let scan = ScanState::new(relation, &rm, &mut bm, qual);
-        let mut delete = DeleteState::new(relation, scan);
+        let bm = RwLock::new(BufferManager::new(1, self.config.clone()));
+        let scan = ScanState::new(relation, &rm, &bm, qual);
+        let mut delete = DeleteState::new(relation, scan, &bm);
 
-        delete.exec_delete(&mut bm);
+        delete.exec_delete();
         println!("Deleted records: {}", delete.count);
 
         Ok(())

@@ -55,6 +55,7 @@ struct BufferDesc {
     valid: bool,
 }
 
+// TODO: Use RwLock to minimize RwLock scope and change ScanState to hold BufferManager ref
 pub struct BufferManager {
     config: Rc<Config>,
     smgr: StorageManager,

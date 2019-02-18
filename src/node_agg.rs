@@ -1,5 +1,4 @@
 use node_seqscan::{ScanState};
-use buffer_manager::{BufferManager};
 
 pub struct CountState<'a> {
     lefttree: ScanState<'a>,
@@ -15,9 +14,9 @@ impl<'a> CountState<'a> {
     }
 
     // `ExecAgg` in pg.
-    pub fn exec_agg(&mut self, bufmrg: &mut BufferManager) {
+    pub fn exec_agg(&mut self) {
         loop {
-            let opt = self.lefttree.exec_scan(bufmrg);
+            let opt = self.lefttree.exec_scan();
 
             match opt {
                 Some(_slot) => {
