@@ -471,8 +471,21 @@ simple_select:
 
 `pg_analyze_and_rewrite`で処理された木は、次に`pg_plan_queries`にかけられる(main.md参照)。ここでの処理はQuery optimizeがメインとなる。
 `pg_plan_queries`のコメントにあるように戻り値は`PlannedStmt`Node("plannodes.h")になる。
-処理は`pg_plan_queries` -> `pg_plan_query` -> `planner` -> `standard_planner`と進む。`subquery_planner`はsub queryの処理を再帰的に行うことを想定したentrypointであり、top levelのstmtを処理する`planner`も主な処理は`standard_planner`で行う。
-`standard_planner`のうち、`where`(事前の書き換えでここでは`Query->jointree`に格納されている)に関連する処理に注目すると、`preprocess_qual_conditions`という関数を呼び出していることがわかる(が、ここでは構造が大きく変わったりはしていなさそう)。
+処理は`pg_plan_queries` -> `pg_plan_query` -> `planner` -> `standard_planner`と進む。`subquery_planner`はsub queryの処理を再帰的に行うことを想定したentrypointであり、top levelのstmtを処理する`standard_planner`も主な処理は`subquery_planner`で行う。
+`subquery_planner`のうち、`where`(事前の書き換えでここでは`Query->jointree`に格納されている)に関連する処理に注目すると、`preprocess_qual_conditions`という関数を呼び出していることがわかる(が、ここでは構造が大きく変わったりはしていなさそう)。
+`standard_planner`内部で`subquery_planner`の処理が終わると、その結果は`create_plan`に渡される。`create_plan`では`Plan`つまりPlan nodeが生成される。
+
+```c
+  /* primary planning entry point (may recurse for subqueries) */
+  root = subquery_planner(glob, parse, NULL,
+              false, tuple_fraction);
+
+  /* Select best Path and turn it into a Plan */
+  final_rel = fetch_upper_rel(root, UPPERREL_FINAL, NULL);
+  best_path = get_cheapest_fractional_path(final_rel, tuple_fraction);
+
+  top_plan = create_plan(root, best_path);
+```
 
 `pg_plan_queries`で処理された木は実行に移される(main.md参照)。`Portal`に対する一連の処理の中で`ExecutorStart`が実行される。`ExecutorStart` -> `standard_ExecutorStart` -> `InitPlan` -> `ExecInitNode`と処理が続く。
 ここの`ExecInitNode`は`Plan`をもとに`PlanState`("execnodes.h")を作成する。`ExecInitNode`の中ではNodeの種類に応じて`ExecInitXXX`という関数が呼ばれる。SeqScanの場合は`ExecInitSeqScan`がよばれる。この関数の最後で`PlanState->qual`がセットされる。
@@ -784,6 +797,157 @@ addRangeTableEntry(ParseState *pstate,
     *top_rte = rte;
     *top_rti = rtindex;
     *namespace = list_make1(makeDefaultNSItem(rte));
+```
+
+# `order by` を実装する
+
+```
+lusiadas=# explain select * from films;
+                        QUERY PLAN
+----------------------------------------------------------
+ Seq Scan on films  (cost=0.00..13.80 rows=380 width=184)
+(1 row)
+
+lusiadas=# explain select * from films order by did;
+                           QUERY PLAN
+----------------------------------------------------------------
+ Sort  (cost=30.08..31.03 rows=380 width=184)
+   Sort Key: did
+   ->  Seq Scan on films  (cost=0.00..13.80 rows=380 width=184)
+(3 rows)
+```
+
+```
+lusiadas=# set session "psql_inspect.planner_script" = 'p PgInspect::PlannedStmt.current_stmt.plan_tree.sort_operators';
+SET
+lusiadas=# select * from films order by did asc;
+# => [97]
+
+lusiadas=# select * from films order by did desc;
+# => [521]
+```
+
+Oidは"pg_operator.dat"に定義してある数値であり、97は"'less than'"、521は"greater than"となっている。
+
+Plan treeのレベルではSort Nodeがあり、そのlefttreeにSeqScanがある(righttreeはとくにない)。
+
+Execのレベルでは`ExecSort`が処理を行なっており、
+
+> In the sorting operation, if all tuples to be sorted can be stored in work_mem, the quicksort algorithm is used. Otherwise, a temporary file is created and the file merge sort algorithm is used.
+
+`inittapes`
+
+# `group by` を実装する
+
+以下の2つのクエリを考えてみる。
+
+(Query. 1)
+
+```sql
+lusiadas=# explain select did from films group by did;
+                          QUERY PLAN
+--------------------------------------------------------------
+ HashAggregate  (cost=14.75..16.75 rows=200 width=4)
+   Group Key: did
+   ->  Seq Scan on films  (cost=0.00..13.80 rows=380 width=4)
+(3 rows)
+```
+
+(Query. 2)
+
+```sql
+lusiadas=# explain select count(1) from films group by did;
+                          QUERY PLAN
+--------------------------------------------------------------
+ HashAggregate  (cost=15.70..17.70 rows=200 width=12)
+   Group Key: did
+   ->  Seq Scan on films  (cost=0.00..13.80 rows=380 width=4)
+(3 rows)
+```
+
+explainの結果は同じだが、plan treeも同じなのだろうか？
+
+```
+lusiadas=# set session "psql_inspect.planner_script" = 'p PgInspect::PlannedStmt.current_stmt.plan_tree';
+
+lusiadas=# select did from films group by did;
+lusiadas=# select count(1) from films group by did;
+```
+
+gram.yではExpr Nodeのlistが作られて、`groupClause`に代入される。
+
+```c
+simple_select:
+      SELECT opt_all_clause opt_target_list
+      into_clause from_clause where_clause
+      group_clause having_clause window_clause
+        {
+          SelectStmt *n = makeNode(SelectStmt);
+          n->targetList = $3;
+          n->intoClause = $4;
+          n->fromClause = $5;
+          n->whereClause = $6;
+          n->groupClause = $7;
+          n->havingClause = $8;
+          n->windowClause = $9;
+          $$ = (Node *)n;
+        }
+...
+
+ * Each item in the group_clause list is either an expression tree or a
+ * GroupingSet node of some type.
+ */
+group_clause:
+      GROUP_P BY group_by_list        { $$ = $3; }
+      | /*EMPTY*/               { $$ = NIL; }
+    ;
+
+group_by_list:
+      group_by_item             { $$ = list_make1($1); }
+      | group_by_list ',' group_by_item   { $$ = lappend($1,$3); }
+    ;
+
+group_by_item:
+      a_expr                  { $$ = $1; }
+      | empty_grouping_set          { $$ = $1; }
+      | cube_clause             { $$ = $1; }
+      | rollup_clause             { $$ = $1; }
+      | grouping_sets_clause          { $$ = $1; }
+    ;
+```
+
+`transformSelectStmt`では`transformGroupClause`がよばれ、その結果が`groupClause`に代入される。また`groupClause`があるときは、`parseCheckAggregates`がよばれる。
+
+```c
+  qry->groupClause = transformGroupClause(pstate,
+                      stmt->groupClause,
+                      &qry->groupingSets,
+                      &qry->targetList,
+                      qry->sortClause,
+                      EXPR_KIND_GROUP_BY,
+                      false /* allow SQL92 rules */ );
+
+...
+  if (pstate->p_hasAggs || qry->groupClause || qry->groupingSets || qry->havingQual)
+    parseCheckAggregates(pstate, qry);
+
+```
+
+`transformGroupClause`のなかでは`groupClause`をflattenしたのちにイテレートする。今回は`IsA(gexpr, GroupingSet)`ではないケースなので、`transformGroupClauseExpr`がよばれる。
+
+`subquery_planner` -> `grouping_planner` -> `preprocess_groupclause` で `Query->groupClause`に格納。
+
+`UPPERREL_GROUP_AGG` `fetch_upper_rel` `root->upper_rels`
+
+`create_grouping_paths` -> `make_grouping_rel`/`create_ordinary_grouping_paths`
+`set_cheapest`
+
+```
+typedef struct Path
+{
+  NodeTag   type;
+
+  NodeTag   pathtype;   /* tag identifying scan/join method */  <- THIS!
 ```
 
 # 有益コメント集
