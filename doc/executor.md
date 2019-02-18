@@ -831,11 +831,11 @@ Oidは"pg_operator.dat"に定義してある数値であり、97は"'less than'"
 
 Plan treeのレベルではSort Nodeがあり、そのlefttreeにSeqScanがある(righttreeはとくにない)。
 
-Execのレベルでは`ExecSort`が処理を行なっており、
+Execのレベルでは`ExecSort`が処理を行なっており、memory上もしくは一時fileを利用してソートを行う。
 
 > In the sorting operation, if all tuples to be sorted can be stored in work_mem, the quicksort algorithm is used. Otherwise, a temporary file is created and the file merge sort algorithm is used.
 
-`inittapes`
+Sort処理の中心は`ExecSort`である。`tuplesort_begin_heap`でセットアップし、全てのtupleをfor loopと`ExecProcNode`でfetchして`tuplesort_puttupleslot`で保存する。最後に`tuplesort_performsort`を呼び出す。`tuplesort_puttupleslot`は処理の大半を`puttuple_common`に移譲している。`puttuple_common`ではメモリの使用状況をみて、メモリを消費しすぎる場合には`inittapes`を呼び出して、一時ファイルを使うようになる。
 
 # `group by` を実装する
 
@@ -948,6 +948,18 @@ typedef struct Path
   NodeTag   type;
 
   NodeTag   pathtype;   /* tag identifying scan/join method */  <- THIS!
+```
+
+# executorの初期化
+
+Plan TreeのNodeをPlanState Node(Exec Node)のTreeに変換する必要がある。`ExecInitNode`がこの変換を行うための関数である。`ExecInitNode`はNodeの種類で分岐し、`ExecInitResult`や`ExecInitProjectSet`などNodeの種類に応じた関数を呼び出し、ExecNodeをつくる。各種`ExecInitXXX`のなかでは必要に応じて再帰的に`ExecInitNode`がよばれる。例えば`ExecInitSort`のなかでは以下のように`ExecInitNode`を呼び出し、outerをセットする。PlanState (node)はPlanState系のNodeの抽象クラスのような存在であるが、これはPlan Nodeと同じように`struct PlanState *lefttree`と`struct PlanState *righttree`をもつ。Plan Node同様にlefttreeがinputに相当する。
+
+```c
+outerPlanState(sortstate) = ExecInitNode(outerPlan(node), estate, eflags);
+```
+
+```c
+#define outerPlanState(node)    (((PlanState *)(node))->lefttree)
 ```
 
 # 有益コメント集
