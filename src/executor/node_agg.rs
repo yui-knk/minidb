@@ -1,4 +1,4 @@
-use node_seqscan::{ScanState};
+use executor::node_seqscan::{ScanState};
 
 pub struct CountState<'a> {
     lefttree: ScanState<'a>,

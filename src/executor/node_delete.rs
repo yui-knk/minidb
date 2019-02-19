@@ -2,7 +2,7 @@
 use std::cell::RefCell;
 use std::sync::RwLock;
 
-use node_seqscan::{ScanState};
+use executor::node_seqscan::{ScanState};
 use buffer_manager::{BufferManager};
 use storage_manager::{RelationData};
 

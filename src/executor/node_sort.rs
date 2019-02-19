@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 use tuple::{TupleTableSlot};
-use node_seqscan::{ScanState};
+use executor::node_seqscan::{ScanState};
 
 pub struct SortState<'a> {
     lefttree: ScanState<'a>,

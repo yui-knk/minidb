@@ -5,11 +5,11 @@ use config::{Config};
 use tuple::{TupleTableSlot, KeyValue};
 use buffer_manager::{BufferManager};
 use storage_manager::{RelationManager};
-use node_agg::{CountState};
-use node_delete::{DeleteState};
-use node_insert::{InsertState};
-use node_seqscan::{ScanState};
-use node_sort::{SortState};
+use executor::node_agg::{CountState};
+use executor::node_delete::{DeleteState};
+use executor::node_insert::{InsertState};
+use executor::node_seqscan::{ScanState};
+use executor::node_sort::{SortState};
 use catalog::catalog_manager::CatalogManager;
 use ast::Expr;
 
