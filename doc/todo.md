@@ -17,6 +17,7 @@
 * [ ] Implement ItemPointerData (tuple id) in HeapTupleHeaderData to support delete operation
 * [ ] Manual vacuum support
 * [ ] Trait for node executions
+* [ ] Implement plan tree builder
 * [ ] Null value support
 * [ ] WAL support
 * [ ] Multi segment support
