@@ -9,6 +9,7 @@
 * [x] Delete operation support
 * [x] Support where condition clause for select
 * [x] Support where condition clause for delete
+* [x] Trait for node executions
 * [ ] Update operation support
 * [ ] Index support
 * [ ] Support where condition clause for update
@@ -16,8 +17,7 @@
 * [ ] Add dirty flag to pages to avoid needless writing when drop the page
 * [ ] Implement ItemPointerData (tuple id) in HeapTupleHeaderData to support delete operation
 * [ ] Manual vacuum support
-* [x] Trait for node executions
-* [ ] Plan node and "optimizer/plan"
+* [ ] Query (Query node/Query tree) and "parse_analyze"
 * [ ] Implement plan tree builder
 * [ ] Null value support
 * [ ] WAL support
