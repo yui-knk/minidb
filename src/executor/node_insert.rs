@@ -5,6 +5,7 @@ use std::sync::RwLock;
 use tuple::{TupleTableSlot};
 use buffer_manager::{BufferManager};
 use storage_manager::{RelationData};
+use executor::plan_node::{PlanNode};
 
 pub struct InsertState<'a> {
     slot: &'a TupleTableSlot,
@@ -24,9 +25,12 @@ impl<'a> InsertState<'a> {
             bufmrg: bufmrg,
         }
     }
+}
 
+impl<'a> PlanNode for InsertState<'a> {
     // `ExecInsert` in pg.
-    pub fn exec_insert(&mut self) {
+    fn exec(&mut self) -> Option<&TupleTableSlot> {
         self.bufmrg.write().unwrap().heap_insert(&mut self.ss_currentRelation.borrow_mut(), self.slot);
+        Some(self.slot)
     }
 }

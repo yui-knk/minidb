@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 use tuple::{TupleTableSlot};
 use executor::node_seqscan::{ScanState};
+use executor::plan_node::PlanNode;
 
 pub struct SortState<'a> {
     lefttree: ScanState<'a>,
@@ -22,11 +23,30 @@ impl<'a> SortState<'a> {
         }
     }
 
+    // fn tuplesort_puttupleslot(&mut self, slot: Box<TupleTableSlot>) {
+    //     self.memtuples.push(slot);
+    // }
+
+    fn tuplesort_performsort(&mut self) {
+        let col_name = self.target_col_name.clone();
+
+        self.memtuples.sort_by(|a, b| {
+           let i_a = a.get_index_from_name(&col_name);
+           let i_b = b.get_index_from_name(&col_name);
+           let col_a = a.get_column(i_a);
+           let col_b = b.get_column(i_b);
+
+           col_a.as_string().cmp(&col_b.as_string())
+        })
+    }
+}
+
+impl<'a> PlanNode for SortState<'a> {
     // ExecSort in pg.
-    pub fn exec_sort(&mut self) -> Option<&TupleTableSlot> {
+    fn exec(&mut self) -> Option<&TupleTableSlot> {
         if !self.sort_Done {
             loop {
-                let slot = self.lefttree.exec_scan();
+                let slot = self.lefttree.exec();
 
                 match slot {
                     Some(s) => {
@@ -50,22 +70,5 @@ impl<'a> SortState<'a> {
         }
 
         return None;
-    }
-
-    // fn tuplesort_puttupleslot(&mut self, slot: Box<TupleTableSlot>) {
-    //     self.memtuples.push(slot);
-    // }
-
-    fn tuplesort_performsort(&mut self) {
-        let col_name = self.target_col_name.clone();
-
-        self.memtuples.sort_by(|a, b| {
-           let i_a = a.get_index_from_name(&col_name);
-           let i_b = b.get_index_from_name(&col_name);
-           let col_a = a.get_column(i_a);
-           let col_b = b.get_column(i_b);
-
-           col_a.as_string().cmp(&col_b.as_string())
-        })
     }
 }

@@ -3,8 +3,10 @@ use std::cell::RefCell;
 use std::sync::RwLock;
 
 use executor::node_seqscan::{ScanState};
+use tuple::{TupleTableSlot};
 use buffer_manager::{BufferManager};
 use storage_manager::{RelationData};
+use executor::plan_node::PlanNode;
 
 pub struct DeleteState<'a> {
     // TODO: Extract this currentRelation to EState
@@ -27,11 +29,13 @@ impl<'a> DeleteState<'a> {
             bufmrg: bufmrg,
         }
     }
+}
 
+impl<'a> PlanNode for DeleteState<'a> {
     // `ExecDelete` in pg.
-    pub fn exec_delete(&mut self) {
+    fn exec(&mut self) -> Option<&TupleTableSlot> {
         loop {
-            let opt = self.lefttree.exec_scan();
+            let opt = self.lefttree.exec();
 
             match opt {
                 Some(slot) => {
@@ -43,5 +47,7 @@ impl<'a> DeleteState<'a> {
                 None => break
             }
         }
+
+        None
     }
 }

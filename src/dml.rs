@@ -10,6 +10,7 @@ use executor::node_delete::{DeleteState};
 use executor::node_insert::{InsertState};
 use executor::node_seqscan::{ScanState};
 use executor::node_sort::{SortState};
+use executor::plan_node::PlanNode;
 use catalog::catalog_manager::CatalogManager;
 use ast::Expr;
 
@@ -49,7 +50,7 @@ impl InsertIntoCommnad {
         slot.update_tuple(key_values)?;
 
         let mut insert = InsertState::new(relation, &slot, &bm);
-        insert.exec_insert();
+        insert.exec();
 
         Ok(())
     }
@@ -78,7 +79,7 @@ impl SelectFromCommnad {
                 let mut sort_state = SortState::new(scan, col_name.clone());
 
                 loop {
-                    let opt = sort_state.exec_sort();
+                    let opt = sort_state.exec();
 
                     match opt {
                         Some(slot) => {
@@ -96,7 +97,7 @@ impl SelectFromCommnad {
                 let mut scan = ScanState::new(relation, &rm, &bm, qual);
 
                 loop {
-                    let opt = scan.exec_scan();
+                    let opt = scan.exec();
 
                     match opt {
                         Some(slot) => {
@@ -135,7 +136,7 @@ impl CountCommnad {
         let scan = ScanState::new(relation, &rm, &bm, qual);
         let mut count = CountState::new(scan);
 
-        count.exec_agg();
+        count.exec();
         println!("Count: {}", count.result);
 
         Ok(())
@@ -161,7 +162,7 @@ impl DeleteCommnad {
         let scan = ScanState::new(relation, &rm, &bm, qual);
         let mut delete = DeleteState::new(relation, scan, &bm);
 
-        delete.exec_delete();
+        delete.exec();
         println!("Deleted records: {}", delete.count);
 
         Ok(())

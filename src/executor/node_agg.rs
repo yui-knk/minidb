@@ -1,4 +1,6 @@
+use tuple::{TupleTableSlot};
 use executor::node_seqscan::{ScanState};
+use executor::plan_node::PlanNode;
 
 pub struct CountState<'a> {
     lefttree: ScanState<'a>,
@@ -12,11 +14,13 @@ impl<'a> CountState<'a> {
             result: 0,
         }
     }
+}
 
-    // `ExecAgg` in pg.
-    pub fn exec_agg(&mut self) {
+impl<'a> PlanNode for CountState<'a> {
+    // See: `ExecAgg` in pg.
+    fn exec(&mut self) -> Option<&TupleTableSlot> {
         loop {
-            let opt = self.lefttree.exec_scan();
+            let opt = self.lefttree.exec();
 
             match opt {
                 Some(_slot) => {
@@ -25,5 +29,7 @@ impl<'a> CountState<'a> {
                 None => break
             }
         }
+
+        None
     }
 }

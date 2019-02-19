@@ -8,6 +8,7 @@ use buffer_manager::{Buffer, BlockNumber, BufferManager, InvalidBlockNumber};
 use tuple::{TupleTableSlot, HeapTupleData, ItemPointerData};
 use off::{FirstOffsetNumber};
 use storage_manager::{RelationData};
+use executor::plan_node::{PlanNode};
 use ast::Expr;
 
 struct ExprEvaluator<'a> {
@@ -154,23 +155,6 @@ impl<'a> ScanState<'a> {
         }
     }
 
-    // ExecScan in pg.
-    pub fn exec_scan(&mut self) -> Option<&TupleTableSlot> {
-        loop {
-            self.seq_next();
-
-            if self.ss_currentScanDesc.rs_finished {
-                return None;
-            }
-
-            if self.exec_qual() {
-                return Some(self.ss_ScanTupleSlot.as_ref());
-            }
-
-            // next tuple
-        }
-    }
-
     // SeqNext in pg.
     fn seq_next(&mut self) {
         self.heap_getnext();
@@ -268,5 +252,24 @@ impl<'a> ScanState<'a> {
 
         let evaluator = ExprEvaluator::new(self.ss_ScanTupleSlot.as_ref(), self.qual.as_ref().unwrap().as_ref());
         evaluator.eval()
+    }
+}
+
+impl<'a> PlanNode for ScanState<'a> {
+    // ExecScan in pg.
+    fn exec(&mut self) -> Option<&TupleTableSlot> {
+        loop {
+            self.seq_next();
+
+            if self.ss_currentScanDesc.rs_finished {
+                return None;
+            }
+
+            if self.exec_qual() {
+                return Some(self.ss_ScanTupleSlot.as_ref());
+            }
+
+            // next tuple
+        }
     }
 }
