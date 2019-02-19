@@ -75,8 +75,8 @@ impl SelectFromCommnad {
 
         match sort {
             Some(col_name) => {
-                let scan = ScanState::new(relation, &rm, &bm, qual);
-                let mut sort_state = SortState::new(scan, col_name.clone());
+                let mut scan = ScanState::new(relation, &rm, &bm, qual);
+                let mut sort_state = SortState::new(&mut scan, col_name.clone());
 
                 loop {
                     let opt = sort_state.exec();
@@ -133,8 +133,8 @@ impl CountCommnad {
         let mut rmgr = RelationManager::new(self.config.clone());
         let relation = rmgr.get_relation(db_oid, table_oid);
         let bm = RwLock::new(BufferManager::new(1, self.config.clone()));
-        let scan = ScanState::new(relation, &rm, &bm, qual);
-        let mut count = CountState::new(scan);
+        let mut scan = ScanState::new(relation, &rm, &bm, qual);
+        let mut count = CountState::new(&mut scan);
 
         count.exec();
         println!("Count: {}", count.result);
@@ -159,8 +159,8 @@ impl DeleteCommnad {
         let mut rmgr = RelationManager::new(self.config.clone());
         let relation = rmgr.get_relation(db_oid, table_oid);
         let bm = RwLock::new(BufferManager::new(1, self.config.clone()));
-        let scan = ScanState::new(relation, &rm, &bm, qual);
-        let mut delete = DeleteState::new(relation, scan, &bm);
+        let mut scan = ScanState::new(relation, &rm, &bm, qual);
+        let mut delete = DeleteState::new(relation, &mut scan, &bm);
 
         delete.exec();
         println!("Deleted records: {}", delete.count);

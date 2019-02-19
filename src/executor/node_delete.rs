@@ -2,7 +2,6 @@
 use std::cell::RefCell;
 use std::sync::RwLock;
 
-use executor::node_seqscan::{ScanState};
 use tuple::{TupleTableSlot};
 use buffer_manager::{BufferManager};
 use storage_manager::{RelationData};
@@ -11,7 +10,7 @@ use executor::plan_node::PlanNode;
 pub struct DeleteState<'a> {
     // TODO: Extract this currentRelation to EState
     currentRelation: &'a RefCell<RelationData>,
-    lefttree: ScanState<'a>,
+    lefttree: &'a mut PlanNode,
     pub count: u64,
     bufmrg: &'a RwLock<BufferManager>,
 }
@@ -19,7 +18,7 @@ pub struct DeleteState<'a> {
 impl<'a> DeleteState<'a> {
     pub fn new(
         relation: &'a RefCell<RelationData>,
-        lefttree: ScanState<'a>,
+        lefttree: &'a mut PlanNode,
         bufmrg: &'a RwLock<BufferManager>,
     ) -> DeleteState<'a> {
         DeleteState {

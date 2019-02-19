@@ -1,10 +1,9 @@
 #![allow(non_snake_case)]
 use tuple::{TupleTableSlot};
-use executor::node_seqscan::{ScanState};
 use executor::plan_node::PlanNode;
 
 pub struct SortState<'a> {
-    lefttree: ScanState<'a>,
+    lefttree: &'a mut PlanNode,
     sort_Done: bool,
     memtuples: Vec<Box<TupleTableSlot>>,
     current: usize, // array index (points current tuple index)
@@ -13,9 +12,9 @@ pub struct SortState<'a> {
 }
 
 impl<'a> SortState<'a> {
-    pub fn new(ss: ScanState<'a>, target_col_name: String) -> SortState {
+    pub fn new(lefttree: &'a mut PlanNode, target_col_name: String) -> SortState {
         SortState {
-            lefttree: ss,
+            lefttree: lefttree,
             sort_Done: false,
             memtuples: vec![],
             current: 0,

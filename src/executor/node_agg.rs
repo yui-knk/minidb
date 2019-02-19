@@ -1,14 +1,13 @@
 use tuple::{TupleTableSlot};
-use executor::node_seqscan::{ScanState};
 use executor::plan_node::PlanNode;
 
 pub struct CountState<'a> {
-    lefttree: ScanState<'a>,
+    lefttree: &'a mut PlanNode,
     pub result: u64,
 }
 
 impl<'a> CountState<'a> {
-    pub fn new(lefttree: ScanState<'a>) -> CountState<'a> {
+    pub fn new(lefttree: &'a mut PlanNode) -> CountState<'a> {
         CountState {
             lefttree: lefttree,
             result: 0,
