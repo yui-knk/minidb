@@ -16,7 +16,8 @@
 * [ ] Add dirty flag to pages to avoid needless writing when drop the page
 * [ ] Implement ItemPointerData (tuple id) in HeapTupleHeaderData to support delete operation
 * [ ] Manual vacuum support
-* [ ] Trait for node executions
+* [x] Trait for node executions
+* [ ] Plan node and "optimizer/plan"
 * [ ] Implement plan tree builder
 * [ ] Null value support
 * [ ] WAL support
