@@ -84,8 +84,9 @@ impl SelectFromCommnad {
                         Some(slot) => {
                             for i in 0..(slot.attrs_count()) {
                                 let ty = slot.get_column(i);
-                                println!("{:?}", ty.as_string());
+                                print!("{:?} ", ty.as_string());
                             }
+                            print!("\n");
                         },
                         None => break
                     }
@@ -101,8 +102,9 @@ impl SelectFromCommnad {
                         Some(slot) => {
                             for i in 0..(slot.attrs_count()) {
                                 let ty = slot.get_column(i);
-                                println!("{:?}", ty.as_string());
+                                print!("{:?} ", ty.as_string());
                             }
+                            print!("\n");
                         },
                         None => break
                     }
