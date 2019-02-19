@@ -59,12 +59,14 @@ pub fn item_pointer_get_block_number(pointer: &ItemPointerData) -> BlockIdData {
 
 
 // Tuple means row of a table.
+#[derive(Clone)]
 pub struct TupleTableSlot {
     tuple_desc: Box<TupleDesc>,
     pub heap_tuple: Box<HeapTupleData>,
 }
 
 // This manages metadata (e.g. column definitions).
+#[derive(Debug, Clone)]
 struct TupleDesc {
     attrs: Vec<MiniAttributeRecord>,
 }
@@ -192,6 +194,20 @@ impl TupleTableSlot {
         unsafe {
             let p = self.heap_tuple.t_data.data_ptr() as *const u8;
             p.add(self.tuple_desc.attrs_len(index) as usize)
+        }
+    }
+}
+
+impl Clone for HeapTupleData {
+    fn clone(&self) -> HeapTupleData {
+        let len = self.t_len;
+        let mut data = Box::new(HeapTupleHeaderData::new(len));
+        data.load(self.data_ptr(), len);
+
+        HeapTupleData {
+            t_len: len,
+            t_self: self.t_self.clone(),
+            t_data: data,
         }
     }
 }

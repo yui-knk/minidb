@@ -184,7 +184,7 @@ impl<'a> ScanState<'a> {
     // heap_getnext in pg.
     //
     // Get next tuple
-    fn heap_getnext(&mut self, ) {
+    fn heap_getnext(&mut self) {
         self.heapgettup();
     }
 

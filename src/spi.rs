@@ -28,11 +28,11 @@ impl<'a> Executor<'a> {
         let stmt = parser.parse(query).expect("Invalid syntax");
         
         match stmt {
-            Stmt::SelectStmt(expr, dbname, tablename, where_clause) => {
+            Stmt::SelectStmt(expr, dbname, tablename, where_clause, sort_clause) => {
                 match *expr {
                     Expr::All => {
                         let select_from = SelectFromCommnad::new(self.config.clone());
-                        select_from.execute(&dbname, &tablename, self.cmgr, &where_clause)
+                        select_from.execute(&dbname, &tablename, self.cmgr, &where_clause, &sort_clause)
                     },
                     Expr::Count => {
                         let count = CountCommnad::new(self.config.clone());

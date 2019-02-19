@@ -1,7 +1,7 @@
 #[derive(Debug)]
 pub enum Stmt {
-    // expr, dbname, tablename, where_clause
-    SelectStmt(Box<Expr>, String, String, Option<Box<Expr>>),
+    // expr, dbname, tablename, where_clause, sort_clause
+    SelectStmt(Box<Expr>, String, String, Option<Box<Expr>>, Option<String>),
     // dbname, tablename, keys, values
     InsertStmt(String, String, Vec<String>, Vec<Vec<String>>),
     // dbname, tablename, where_clause

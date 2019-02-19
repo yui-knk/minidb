@@ -32,6 +32,9 @@ insert_into25: insert_into insert_into insert_into insert_into insert_into
 select_from:
 	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) execute "select * from $(DBNAME).$(TABLENAME)"
 
+select_sort:
+	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) execute "select * from $(DBNAME).$(TABLENAME) order by age"
+
 count:
 	cargo run -- --base_dir $(BASE_DIR) --log_level $(LOGLEVEL) execute "select count() from $(DBNAME).$(TABLENAME)"
 

@@ -3,9 +3,9 @@ use ast::{Stmt, Expr};
 grammar;
 
 pub Statement: Stmt = {
-    // SELECT expr FROM dbname "." tablename (where_clause)
-    Select_T <e:TargetList> From_T <fi: From_Item> <ow:OptWhere> => {
-        Stmt::SelectStmt(e, fi.0, fi.1, ow)
+    // SELECT expr FROM dbname "." tablename (where_clause) (sort_clause)
+    Select_T <e:TargetList> From_T <fi: From_Item> <ow:OptWhere> <os:OptSort> => {
+        Stmt::SelectStmt(e, fi.0, fi.1, ow, os)
     },
     // INSERT INTO dbname "." tablename "(" keys ")" VALUES value_lists
     Insert_T Into_T <fi: From_Item> "(" <li1:Ident_List> ")" Values_T <li2:Value_Lists> => {
@@ -25,6 +25,11 @@ TargetList: Box<Expr> = {
 
 OptWhere: Option<Box<Expr>> = {
     Where_T <e:Expression0> => Some(e),
+    () => None,
+}
+
+OptSort: Option<String> = {
+    OrderBy_T <i:Ident>  => Some(i),
     () => None,
 }
 
@@ -72,6 +77,11 @@ From_T: () = {
 Where_T: () = {
     "where",
     "WHERE",
+}
+
+OrderBy_T: () = {
+    "ORDER BY",
+    "order by",
 }
 
 Values_T: () = {
