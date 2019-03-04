@@ -722,6 +722,35 @@ T_Var Nodeは`ExecInitExprRec`によって`EEOP_SCAN_VAR`などのstepになる�
     econtext->ecxt_scantuple = slot;
 ```
 
+## targetlistとTargetEntry
+
+Plan nodeが共通してもつデータ構造である`struct Plan`には`List *targetlist;`というメンバーがある。これは
+`TargetEntry`という構造体のlistになっている。targetlistはそのPlan nodeが出力するtupleのカラムを表現している。例えば以下のような単純なselectの場合、targetlistには2つのVar nodeが入っており、それぞれtitleとdidを表している。
+
+```
+lusiadas=# set session "psql_inspect.planner_script" = 'p PgInspect::PlannedStmt.current_stmt.plan_tree.targetlist.map(&:expr)';
+lusiadas=# select title, did from films;
+
+# => [#<PgInspect::Var:0x7fc2728c69e0>, #<PgInspect::Var:0x7fc2728c68f0>]
+
+lusiadas=# set session "psql_inspect.planner_script" = 'p PgInspect::PlannedStmt.current_stmt.plan_tree.targetlist.map(&:expr).map(&:varattno)';
+
+lusiadas=# select title, did from films;
+
+# => [2, 3]
+
+lusiadas=# \d films
+                         Table "public.films"
+  Column   |          Type           | Collation | Nullable | Default
+-----------+-------------------------+-----------+----------+---------
+ code      | character(5)            |           | not null |
+ title     | character varying(40)   |           | not null |
+ did       | integer                 |           | not null |
+ date_prod | date                    |           |          |
+ kind      | character varying(10)   |           |          |
+ len       | interval hour to minute |           |          |
+```
+
 ## ParseState
 
 `ParseState`はparse analysis時のコンテキストを管理するもので、joinのリストやrange tableのリストをもっている。
@@ -867,12 +896,74 @@ lusiadas=# explain select count(1) from films group by did;
 
 explainの結果は同じだが、plan treeも同じなのだろうか？
 
-```
-lusiadas=# set session "psql_inspect.planner_script" = 'p PgInspect::PlannedStmt.current_stmt.plan_tree';
+(Query. 1)
 
-lusiadas=# select did from films group by did;
-lusiadas=# select count(1) from films group by did;
+grp_col_idx: どのカラムでgroupingするかの情報をもつ。
+resjunk: 最終的に使わない(内部的な事情で追加されている)カラムの場合trueになる。
+
 ```
+lusiadas=# set session "psql_inspect.planner_script" = 'pt = PgInspect::PlannedStmt.current_stmt.plan_tree; p [pt, pt.grp_col_idx, pt.targetlist.map(&:expr), pt.targetlist.map(&:expr).map(&:varattno), pt.targetlist.map(&:resjunk)]';
+lusiadas=# select did from films group by did;
+
+# 3 means did column
+# => [#<PgInspect::Agg:0x7fc27103acf0>, [3], [#<PgInspect::Var:0x7fc27103aa80>], [3], [false]]
+```
+
+```
+lusiadas=# set session "psql_inspect.planner_script" = 'pt = PgInspect::PlannedStmt.current_stmt.plan_tree; p [pt, pt.grp_col_idx, pt.targetlist.map(&:expr), pt.targetlist.map(&:expr).map(&:varattno), pt.targetlist.map(&:resjunk)]';
+lusiadas=# select did from films group by did, title;
+
+# 3 means did column, 2 means title
+# => [#<PgInspect::Agg:0x7fc27103cee0>, [3, 2], [#<PgInspect::Var:0x7fc27103cc40>, #<PgInspect::Var:0x7fc27103cb50>], [3, 2], [false, true]]
+```
+
+(Query. 2)
+
+```
+lusiadas=# set session "psql_inspect.planner_script" = 'pt = PgInspect::PlannedStmt.current_stmt.plan_tree; p [pt, pt.grp_col_idx, pt.targetlist.map(&:expr), [pt.targetlist.map(&:expr)[0].args, pt.targetlist.map(&:expr)[1].varattno], pt.targetlist.map(&:resjunk)]';
+lusiadas=# select count(1) from films group by did;
+
+# 3 means did column
+# => [#<PgInspect::Agg:0x7fc271034630>, [3], [#<PgInspect::Aggref:0x7fc271034390>, #<PgInspect::Var:0x7fc2710342a0>], [[#<PgInspect::TargetEntry:0x7fc271033ee0>], 3], [false, true]]
+
+lusiadas=# set session "psql_inspect.planner_script" = 'pt = PgInspect::PlannedStmt.current_stmt.plan_tree; aggref = pt.targetlist.map(&:expr)[0]; p [aggref.args.map(&:expr), aggref.args.map(&:expr).map(&:constvalue), aggref.aggfnoid]';
+
+lusiadas=# select count(1) from films group by did;
+# => [[#<PgInspect::Const:0x7fc272034ff0>], [1], 2147]
+
+lusiadas=# select avg(1) from films group by did;
+[[#<PgInspect::Const:0x7fc272033fd0>], [1], 2101]
+```
+
+`aggfnoid`はアグリゲーションに使う関数のOidを表しており、2147はcount、2101はavgのことである("src/include/catalog/pg_proc.dat"参照)。アグリゲーション関数の実態は`Form_pg_aggregate`であり、レコード定義は"pg_aggregate.dat"にある。
+
+`ExecInitAgg`でNodeの実行に必要な情報を集める。`SearchSysCache1(AGGFNOID`の箇所はpg_aggregateからデータを引いてくることになるので`Form_pg_aggregate`にキャストしてよい。`aggfnoid`の型は`regproc`であるがこれは`Oid`のエイリアスである(コンソールでselectしたときの表示は"pg_catalog.count"のようになる)。
+
+```c
+    /* Fetch the pg_aggregate row */
+    aggTuple = SearchSysCache1(AGGFNOID,
+                   ObjectIdGetDatum(aggref->aggfnoid));
+    if (!HeapTupleIsValid(aggTuple))
+      elog(ERROR, "cache lookup failed for aggregate %u",
+         aggref->aggfnoid);
+    aggform = (Form_pg_aggregate) GETSTRUCT(aggTuple);
+```
+
+```c
+typedef Oid regproc;
+```
+
+count(2147)を引いてみると以下のようになり、"pg_aggregate.dat"で定義されたデータが返ってくる。
+
+```
+lusiadas=# select * from pg_aggregate where aggfnoid = 2147;
+     aggfnoid     | aggkind | aggnumdirectargs | aggtransfn  | aggfinalfn | aggcombinefn | aggserialfn | aggdeserialfn | aggmtransfn | aggminvtransfn | aggmfinalfn | aggfinalextra | aggmfinalextra | aggfinalmodify | aggmfinalmodify | aggsortop | aggtranstype | aggtransspace | aggmtranstype | aggmtransspace | agginitval | aggminitval
+------------------+---------+------------------+-------------+------------+--------------+-------------+---------------+-------------+----------------+-------------+---------------+----------------+----------------+-----------------+-----------+--------------+---------------+---------------+----------------+------------+-------------
+ pg_catalog.count | n       |                0 | int8inc_any | -          | int8pl       | -           | -             | int8inc_any | int8dec_any    | -           | f             | f              | r              | r               |         0 |           20 |             0 |            20 |              0 | 0          | 0
+(1 row)
+```
+
+
 
 gram.yではExpr Nodeのlistが作られて、`groupClause`に代入される。
 
