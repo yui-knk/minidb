@@ -4,7 +4,11 @@
 `PageHeaderData`がpageのheaderである。これは末尾にflexible arrayをもつ
 
 ```c
-ItemIdData  pd_linp[FLEXIBLE_ARRAY_MEMBER]; /* line pointer array */
+typedef struct PageHeaderData
+{
+    ...
+    ItemIdData  pd_linp[FLEXIBLE_ARRAY_MEMBER]; /* line pointer array */
+} PageHeaderData;
 ```
 
 ```c

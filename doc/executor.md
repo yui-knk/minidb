@@ -963,7 +963,37 @@ lusiadas=# select * from pg_aggregate where aggfnoid = 2147;
 (1 row)
 ```
 
+`ExecInitAgg`のなかで使用されている`aggform`のメンバーは以下のとおり:
 
+* `transfn_oid = aggform->aggcombinefn;`
+* `transfn_oid = aggform->aggtransfn;`
+* `peragg->finalfn_oid = finalfn_oid = aggform->aggfinalfn;`
+* `shareable = (aggform->aggfinalmodify != AGGMODIFY_READ_WRITE) ||`
+* `serialfn_oid = aggform->aggserialfn;`
+* `deserialfn_oid = aggform->aggdeserialfn;`
+* `if (aggform->aggfinalextra)`
+* `Anum_pg_aggregate_agginitval` (= `agginitval`)
+
+"nodeAgg.c"の実行時に必要なデータ構造である`AggState`のフィールドについてみておく。
+
+* `int num_hashes`
+* `AggStatePerHash perhash`
+
+Hash法でアグリゲーションするときに使うデータ。`groupingSets`の数によって変わるが初期値は1。
+
+
+`ExecInitAgg`のなかで`aggstate->ss.ps.ExecProcNode = ExecAgg;`していることからも明らかに"nodeAgg.c"でtupleを生成するための関数は`ExecAgg`である。
+`ExecAgg`は`aggstrategy`によってaggregationの方法が変化する。。ここでは`AGG_HASHED`のケースをみていく。
+
+- `ExecAgg`
+-- `agg_fill_hash_table`
+--- `fetch_input_tuple`: outer planからtupleをfetchする
+--- `lookup_hash_entries`: `aggstate->hash_pergroup`をセットする
+--- `advance_aggregates`: `aggstate->phase->evaltrans`を評価する
+--- `select_current_set`: `aggstate->curaggcontext`と`aggstate->current_set`を調整する
+-- `agg_retrieve_hash_table`
+
+"nodeAgg.c"でouter planからtupleをfetchするのは`fetch_input_tuple`だけ。
 
 gram.yではExpr Nodeのlistが作られて、`groupClause`に代入される。
 
