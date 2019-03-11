@@ -218,12 +218,14 @@ impl<'a> ScanState<'a> {
             // if we get here, it means we've exhausted the items on this page and
             // it's time to move to the next.
 
+            // If this is a last page, all works are finished (we do not support segments).
             if scan_desc.rs_cblock + 1 >= scan_desc.rs_nblocks {
                 scan_desc.rs_finished = true;
                 return
             }
 
             // In pg, heapgetpage update `rs_cbuf`, `rs_cblock`
+            // Get next page.
             {
                 let page = scan_desc.rs_cblock + 1;
                 scan_desc.rs_cblock = page;
