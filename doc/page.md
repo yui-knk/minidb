@@ -204,3 +204,52 @@ Ref: http://www.interdb.jp/pg/pgsql05.html#_5.3.
 
 実際のPostgresではMVCCを採用しており、`t_xmax`や現在のtransaction idを使用してtupleの可視性を判断している。詳しい実装は`heap_fetch`、`HeapTupleSatisfiesVisibility`、`HeapTupleSatisfiesMVCC`を参照。
 今回は`t_infomask2`の`HEAP_KEYS_UPDATED`のみをつかって削除を実装する。なお更新処理時も追記をする形で更新を実装するので`HEAP_KEYS_UPDATED`をチェックして、当該フラグが立っているtupleを無視するようにすればよい。
+
+## nodeSeqScanにおけるTupleTableSlotの生成と初期化
+
+例としてnodeSeqScanにおけるTupleTableSlotの生成と初期化をみておく。
+SeqScanState構造体は`state->ss->ss_ScanTupleSlot`という形で`TupleTableSlot`をもっている。このメンバーの初期化は `ExecInitSeqScan` -> `ExecInitScanTupleSlot` -> `ExecAllocTableSlot` -> `MakeTupleTableSlot` で行われる。
+`MakeTupleTableSlot`は引数の`TupleDesc tupleDesc`がNULLか否かで確保するメモリーの大きさが変化する。NULLでないときは`tts_fixedTupleDescriptor`という扱いになり、この関数の内部で`tts_values`および`tts_isnull`が使用するメモリも含めて確保する。
+nodeSeqScanのケースでは`ss_currentRelation`から`TupleDesc`が取得できるため、fixedTupleDescriptorとなる。
+
+```c
+typedef struct ScanState
+{
+  PlanState ps;       /* its first field is NodeTag */
+  Relation  ss_currentRelation;
+  HeapScanDesc ss_currentScanDesc;
+  TupleTableSlot *ss_ScanTupleSlot;
+} ScanState;
+
+typedef struct SeqScanState
+{
+  ScanState ss;       /* its first field is NodeTag */
+  Size    pscan_len;    /* size of parallel heap scan descriptor */
+} SeqScanState;
+```
+
+```
+  /* and create slot with the appropriate rowtype */
+  ExecInitScanTupleSlot(estate, &scanstate->ss,
+              RelationGetDescr(scanstate->ss.ss_currentRelation));
+
+void
+ExecInitScanTupleSlot(EState *estate, ScanState *scanstate, TupleDesc tupledesc)
+{
+  scanstate->ss_ScanTupleSlot = ExecAllocTableSlot(&estate->es_tupleTable,
+                           tupledesc);
+  scanstate->ps.scandesc = tupledesc;
+}
+
+TupleTableSlot *
+ExecAllocTableSlot(List **tupleTable, TupleDesc desc)
+{
+  TupleTableSlot *slot = MakeTupleTableSlot(desc);
+
+  *tupleTable = lappend(*tupleTable, slot);
+
+  return slot;
+}
+```
+
+
