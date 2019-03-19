@@ -10,3 +10,4 @@
 * http://www.nminoru.jp/~nminoru/postgresql/pg-basic-types-and-tuple.html
 * https://pgconf.ru/media/2016/05/13/tuple-internals.pdf
 * https://www.sraoss.co.jp/event_seminar/2006/inside.pdf
+* https://www.pgcon.org/2012/schedule/attachments/243_Hooks%20in%20PostgreSQL
