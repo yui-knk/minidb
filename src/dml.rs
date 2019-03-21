@@ -14,25 +14,25 @@ use executor::plan_node::PlanNode;
 use catalog::catalog_manager::CatalogManager;
 use ast::Expr;
 
-pub struct InsertIntoCommnad {
+pub struct InsertIntoCommand {
     config: Rc<Config>,
 }
 
-pub struct SelectFromCommnad {
+pub struct SelectFromCommand {
     config: Rc<Config>,
 }
 
-pub struct CountCommnad {
+pub struct CountCommand {
     config: Rc<Config>,
 }
 
-pub struct DeleteCommnad {
+pub struct DeleteCommand {
     config: Rc<Config>,
 }
 
-impl InsertIntoCommnad {
-    pub fn new(config: Rc<Config>) -> InsertIntoCommnad {
-        InsertIntoCommnad {
+impl InsertIntoCommand {
+    pub fn new(config: Rc<Config>) -> InsertIntoCommand {
+        InsertIntoCommand {
             config: config,
         }
     }
@@ -56,9 +56,9 @@ impl InsertIntoCommnad {
     }
 }
 
-impl SelectFromCommnad {
-    pub fn new(config: Rc<Config>) -> SelectFromCommnad {
-        SelectFromCommnad {
+impl SelectFromCommand {
+    pub fn new(config: Rc<Config>) -> SelectFromCommand {
+        SelectFromCommand {
             config: config,
         }
     }
@@ -117,9 +117,9 @@ impl SelectFromCommnad {
     }
 }
 
-impl CountCommnad {
-    pub fn new(config: Rc<Config>) -> CountCommnad {
-        CountCommnad {
+impl CountCommand {
+    pub fn new(config: Rc<Config>) -> CountCommand {
+        CountCommand {
             config: config,
         }
     }
@@ -143,9 +143,9 @@ impl CountCommnad {
     }
 }
 
-impl DeleteCommnad {
-    pub fn new(config: Rc<Config>) -> DeleteCommnad {
-        DeleteCommnad {
+impl DeleteCommand {
+    pub fn new(config: Rc<Config>) -> DeleteCommand {
+        DeleteCommand {
             config: config,
         }
     }

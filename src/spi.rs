@@ -2,7 +2,7 @@
 use std::rc::Rc;
 
 use ast::{Stmt, Expr};
-use dml::{InsertIntoCommnad, SelectFromCommnad, CountCommnad, DeleteCommnad};
+use dml::{InsertIntoCommand, SelectFromCommand, CountCommand, DeleteCommand};
 use tuple::{KeyValueBuilder};
 use config::{Config};
 use catalog::catalog_manager::CatalogManager;
@@ -31,11 +31,11 @@ impl<'a> Executor<'a> {
             Stmt::SelectStmt(expr, dbname, tablename, where_clause, sort_clause) => {
                 match *expr {
                     Expr::All => {
-                        let select_from = SelectFromCommnad::new(self.config.clone());
+                        let select_from = SelectFromCommand::new(self.config.clone());
                         select_from.execute(&dbname, &tablename, self.cmgr, &where_clause, &sort_clause)
                     },
                     Expr::Count => {
-                        let count = CountCommnad::new(self.config.clone());
+                        let count = CountCommand::new(self.config.clone());
                         count.execute(&dbname, &tablename, self.cmgr, &where_clause)
                     },
                     Expr::Bool(_) => {
@@ -53,7 +53,7 @@ impl<'a> Executor<'a> {
                 }
             },
             Stmt::InsertStmt(dbname, tablename, keys, value_lists) => {
-                // TODO: Implement nodeValuesscan and change InsertIntoCommnad
+                // TODO: Implement nodeValuesscan and change InsertIntoCommand
                 //       to fetch all records.
                 for values in value_lists.iter() {
                     let mut builder = KeyValueBuilder::new();
@@ -62,14 +62,14 @@ impl<'a> Executor<'a> {
                         builder.add_pair(k, v)
                     }
 
-                    let insert_into = InsertIntoCommnad::new(self.config.clone());
+                    let insert_into = InsertIntoCommand::new(self.config.clone());
                     insert_into.execute(&dbname, &tablename, builder.build(), self.cmgr)?;
                 }
 
                 Ok(())
             },
             Stmt::DeleteStmt(dbname, tablename, where_clause) => {
-                let delete = DeleteCommnad::new(self.config.clone());
+                let delete = DeleteCommand::new(self.config.clone());
                 delete.execute(&dbname, &tablename, self.cmgr, &where_clause)
             },
         }
